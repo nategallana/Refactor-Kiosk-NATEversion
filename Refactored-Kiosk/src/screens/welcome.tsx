@@ -3,21 +3,24 @@ import { Brand } from '../components/brand'
 
 export function WelcomeScreen() {
   const navigate = useNavigate()
+
   return <main className="welcome screen-enter">
-    <div className="welcome__halo welcome__halo--one" />
-    <div className="welcome__halo welcome__halo--two" />
     <section className="welcome__content">
       <Brand />
-      <p className="eyebrow">GOOD FOOD · GOOD COMPANY</p>
-      <h1>Made for the<br /><em>moment.</em></h1>
-      <p className="welcome__lead">Freshly prepared favorites, ordered just the way you like them.</p>
-      <button className="primary-button primary-button--wide" onClick={() => navigate('/dining')}>Start your order <span>→</span></button>
-      <p className="welcome__hint">Tap anywhere to begin</p>
+      <div className="welcome__message">
+        <p className="welcome__eyebrow">FRESHLY MADE FOR YOU</p>
+        <h1>Welcome to<br /><em>Table &amp; Company</em></h1>
+        <p className="welcome__lead">Order your favorites in just a few simple steps.</p>
+      </div>
+      <div className="welcome__visual" aria-hidden="true">
+        <span className="welcome__visual-ring" />
+        <img src="/menu/burger-bundle.png" alt="" />
+      </div>
+      <button className="welcome__start" onClick={() => navigate('/dining')}>
+        <span>Start your order</span><strong aria-hidden="true">&rarr;</strong>
+      </button>
+      <p className="welcome__hint">Tap the button to begin</p>
     </section>
-    <div className="welcome__art" aria-hidden="true">
-      <div className="plate"><div className="plate__food">🍗</div><i className="leaf leaf--one">●</i><i className="leaf leaf--two">●</i><i className="leaf leaf--three">●</i></div>
-      <span className="scribble">made<br />fresh</span>
-    </div>
-    <footer className="welcome__footer"><span>Need help? Ask one of our team members.</span><span>English · ₱ PHP</span></footer>
+    <footer className="welcome__footer">Need help? Ask one of our team members.</footer>
   </main>
 }

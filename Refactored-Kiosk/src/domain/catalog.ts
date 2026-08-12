@@ -4,6 +4,8 @@ export const optionValueSchema = z.object({
   id: z.string(),
   name: z.string(),
   priceDelta: z.number().int(),
+  imageUrl: z.string().optional(),
+  emoji: z.string().optional(),
 })
 
 export const optionGroupSchema = z.object({
@@ -33,6 +35,8 @@ export const productSchema = z.object({
   available: z.boolean(),
   accent: z.string(),
   emoji: z.string(),
+  imageUrl: z.string().optional(),
+  combo: z.boolean().optional(),
   optionGroups: z.array(optionGroupSchema),
 })
 

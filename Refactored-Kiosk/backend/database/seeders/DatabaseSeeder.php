@@ -15,6 +15,21 @@ class DatabaseSeeder extends Seeder
             ['email' => 'admin@kiosk.local'],
             ['name' => 'Kiosk Administrator', 'password' => Hash::make('Admin123!'), 'role' => 'admin'],
         );
+        DB::table('system_settings')->insertOrIgnore([
+            'id' => 1,
+            'brand_name' => 'Table & Company',
+            'tax_rate_basis_points' => 1200,
+            'service_mode' => 'both',
+            'currency' => 'PHP',
+            'counter_payment_enabled' => true,
+            'card_payment_enabled' => true,
+            'idle_timeout_seconds' => 120,
+            'auto_reset_seconds' => 15,
+            'receipt_header' => 'Thank you for dining with us.',
+            'receipt_footer' => 'Please keep this receipt for your order.',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
         if (DB::table('categories')->exists()) {
             return;
         }

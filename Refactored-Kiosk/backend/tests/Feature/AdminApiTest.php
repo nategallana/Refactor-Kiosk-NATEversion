@@ -23,3 +23,28 @@ it('rejects invalid admin credentials', function () {
         'email' => 'missing@example.test', 'password' => 'wrong-password',
     ])->assertUnprocessable()->assertJsonPath('message', 'The email or password is incorrect.');
 });
+
+it('reads and updates persistent system settings with an audit record', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $this->seed();
+
+    $this->actingAs($admin)->getJson('/api/v1/admin/settings')
+        ->assertOk()
+        ->assertJsonPath('settings.brand_name', 'Table & Company');
+
+    $this->actingAs($admin)->putJson('/api/v1/admin/settings', [
+        'brand_name' => 'North Hall Kiosk',
+        'tax_rate_basis_points' => 1200,
+        'service_mode' => 'both',
+        'currency' => 'PHP',
+        'counter_payment_enabled' => true,
+        'card_payment_enabled' => false,
+        'idle_timeout_seconds' => 180,
+        'auto_reset_seconds' => 20,
+        'receipt_header' => 'Welcome to North Hall.',
+        'receipt_footer' => 'Thank you.',
+    ])->assertOk()->assertJsonPath('settings.brand_name', 'North Hall Kiosk');
+
+    $this->assertDatabaseHas('system_settings', ['id' => 1, 'brand_name' => 'North Hall Kiosk']);
+    $this->assertDatabaseHas('audit_logs', ['actor_id' => $admin->id, 'action' => 'settings.updated']);
+});

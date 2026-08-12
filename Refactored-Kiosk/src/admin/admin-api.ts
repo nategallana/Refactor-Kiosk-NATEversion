@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { AdminUser } from './admin-store'
+import { useAdminStore, type AdminUser } from './admin-store'
 
 const apiBase = import.meta.env.VITE_API_BASE_URL || `${window.location.protocol}//${window.location.hostname}:8000/api/v1`
 
@@ -14,9 +14,35 @@ const productSchema = z.object({
   description: z.string().nullable(), price_minor: z.number(), emoji: z.string().nullable(), accent: z.string(),
   active: z.coerce.boolean(), available: z.coerce.boolean(),
 })
+const settingsSchema = z.object({
+  id: z.number(),
+  brand_name: z.string(),
+  tax_rate_basis_points: z.number().int(),
+  service_mode: z.enum(['dine-in', 'takeout', 'both']),
+  currency: z.literal('PHP'),
+  counter_payment_enabled: z.coerce.boolean(),
+  card_payment_enabled: z.coerce.boolean(),
+  idle_timeout_seconds: z.number().int(),
+  auto_reset_seconds: z.number().int(),
+  receipt_header: z.string().nullable(),
+  receipt_footer: z.string().nullable(),
+  created_at: z.string().nullable(),
+  updated_at: z.string().nullable(),
+})
 
 export type AdminOrder = z.infer<typeof orderSchema>
 export type AdminProduct = z.infer<typeof productSchema>
+export type AdminSettings = z.infer<typeof settingsSchema>
+
+export class RateLimitError extends Error {
+  retryAfterSeconds: number
+
+  constructor(retryAfterSeconds: number) {
+    super('Too many login attempts. Try again in ' + retryAfterSeconds + ' seconds.')
+    this.name = 'RateLimitError'
+    this.retryAfterSeconds = retryAfterSeconds
+  }
+}
 
 async function apiRequest<T>(path: string, schema: z.ZodType<T>, token?: string | null, init?: RequestInit): Promise<T> {
   const response = await fetch(`${apiBase}${path}`, {
@@ -25,6 +51,15 @@ async function apiRequest<T>(path: string, schema: z.ZodType<T>, token?: string 
   })
   const payload: unknown = await response.json().catch(() => ({ message: 'The server returned an invalid response.' }))
   if (!response.ok) {
+    if (response.status === 429) {
+      const retryAfter = Number.parseInt(response.headers.get('Retry-After') ?? '60', 10)
+      throw new RateLimitError(Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : 60)
+    }
+    if (response.status === 401) {
+      useAdminStore.getState().signOut()
+      window.dispatchEvent(new CustomEvent('admin:session-expired'))
+      throw new Error('Your session expired. Please sign in again.')
+    }
     const message = z.object({ message: z.string() }).safeParse(payload)
     throw new Error(message.success ? message.data.message : 'Request failed. Please try again.')
   }
@@ -47,3 +82,6 @@ export const setAvailability = (token: string, id: number, available: boolean) =
 export const getOrders = (token: string) => apiRequest('/admin/orders', z.object({ orders: z.array(orderSchema) }), token)
 export const setOrderStatus = (token: string, id: number, status: string) => apiRequest(`/admin/orders/${id}/status`, z.object({ order: orderSchema }), token, { method: 'PATCH', body: JSON.stringify({ status }) })
 export const logout = (token: string) => apiRequest('/admin/auth/logout', z.object({ message: z.string() }), token, { method: 'POST' })
+export const getSettings = (token: string) => apiRequest('/admin/settings', z.object({ settings: settingsSchema }), token)
+export const updateSettings = (token: string, settings: Omit<AdminSettings, 'id' | 'created_at' | 'updated_at'>) =>
+  apiRequest('/admin/settings', z.object({ settings: settingsSchema }), token, { method: 'PUT', body: JSON.stringify(settings) })
