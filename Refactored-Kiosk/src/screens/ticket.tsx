@@ -1,0 +1,14 @@
+import { Navigate, useNavigate } from 'react-router-dom'
+import { Brand } from '../components/brand'
+import { Check, Printer } from '../components/icons'
+import { formatMoney, lineTotal } from '../domain/order'
+import { useKioskStore } from '../store/kiosk-store'
+
+export function TicketScreen() {
+  const navigate = useNavigate()
+  const receipt = useKioskStore((state) => state.receipt)
+  const reset = useKioskStore((state) => state.reset)
+  if (!receipt) return <Navigate to="/" replace />
+  const finish = () => { reset(); navigate('/', { replace: true }) }
+  return <main className="ticket-page screen-enter"><section className="success-copy"><span className="success-icon"><Check /></span><p className="eyebrow">ORDER CONFIRMED</p><h1>Thank you!</h1><p>Your order is in the kitchen.<br />Please keep your ticket.</p><div className="ticket-number"><span>YOUR ORDER NUMBER</span><strong>{receipt.orderNumber}</strong></div><button className="primary-button" onClick={() => window.print()}><Printer /> Print ticket</button><button className="secondary-button" onClick={finish}>Finish</button></section><article className="receipt"><Brand compact /><p>{receipt.diningType === 'dine-in' ? 'DINE IN' : 'TAKE OUT'} · {new Date(receipt.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p><div className="receipt__number">#{receipt.orderNumber}</div><hr />{receipt.items.map((item) => <div className="receipt__line" key={item.id}><span>{item.quantity} × {item.name}<small>{item.selections.map((option) => option.valueName).join(', ')}</small></span><b>{formatMoney(lineTotal(item))}</b></div>)}<hr /><div className="receipt__line"><span>Subtotal</span><b>{formatMoney(receipt.subtotal)}</b></div><div className="receipt__line"><span>VAT</span><b>{formatMoney(receipt.tax)}</b></div><div className="receipt__line receipt__total"><span>Total</span><b>{formatMoney(receipt.total)}</b></div><p className="receipt__footer">Payment: {receipt.paymentMethod === 'counter' ? 'PAY AT COUNTER' : 'CARD'}<br />Thank you for dining with us.</p></article></main>
+}
