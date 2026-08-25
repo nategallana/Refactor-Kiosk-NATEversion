@@ -14,7 +14,10 @@ class AdminDashboardController extends Controller
 
         return response()->json([
             'summary' => [
-                'sales_minor' => (clone $orders)->where('payment_status', 'paid')->sum('total_minor'),
+                'sales_minor' => (clone $orders)
+                    ->whereNotIn('fulfillment_status', ['pending', 'cancelled'])
+                    ->where('payment_status', 'paid')
+                    ->sum('total_minor'),
                 'orders' => (clone $orders)->count(),
                 'active_orders' => (clone $orders)->whereNotIn('fulfillment_status', ['completed', 'cancelled'])->count(),
                 'available_products' => DB::table('products')->where('active', true)->where('available', true)->count(),

@@ -106,17 +106,28 @@ export function ReportsPage() {
     })
   }, [orders, datePreset, customFrom, customTo, selectedTerminal, selectedDiningType, searchQuery])
 
-  // KPIs
+  // Settled (Paid & Confirmed/Preparing/Ready/Completed) vs Pending/Cancelled Orders
+  const isSettledOrder = (o: AdminOrder) => {
+    const fStatus = (o.fulfillment_status || '').toLowerCase()
+    return fStatus !== 'pending' && fStatus !== 'cancelled'
+  }
+
+  const settledOrders = useMemo(() => filteredOrders.filter(isSettledOrder), [filteredOrders])
+  const pendingOrders = useMemo(() => filteredOrders.filter((o) => (o.fulfillment_status || '').toLowerCase() === 'pending'), [filteredOrders])
+  const cancelledOrders = useMemo(() => filteredOrders.filter((o) => (o.fulfillment_status || '').toLowerCase() === 'cancelled'), [filteredOrders])
+
+  // KPIs (Calculated strictly from Settled/Non-Pending orders)
   const stats = useMemo(() => {
-    const totalSalesMinor = filteredOrders.reduce((sum, o) => sum + (o.total_minor || 0), 0)
-    const totalOrders = filteredOrders.length
+    const totalSalesMinor = settledOrders.reduce((sum, o) => sum + (o.total_minor || 0), 0)
+    const totalOrders = settledOrders.length
     const avgOrderValueMinor = totalOrders > 0 ? Math.round(totalSalesMinor / totalOrders) : 0
+    const pendingSalesMinor = pendingOrders.reduce((sum, o) => sum + (o.total_minor || 0), 0)
 
     let totalItems = 0
     let dineInCount = 0
     let takeoutCount = 0
 
-    filteredOrders.forEach((o) => {
+    settledOrders.forEach((o) => {
       if (o.dining_type?.toLowerCase() === 'dine-in' || o.dining_type?.toLowerCase() === 'dine in') {
         dineInCount++
       } else {
@@ -139,8 +150,8 @@ export function ReportsPage() {
       }
     })
 
-    const taxMinor = filteredOrders.reduce((sum, o) => sum + (o.tax_minor || 0), 0)
-    const subtotalMinor = filteredOrders.reduce((sum, o) => sum + (o.subtotal_minor || 0), 0)
+    const taxMinor = settledOrders.reduce((sum, o) => sum + (o.tax_minor || 0), 0)
+    const subtotalMinor = settledOrders.reduce((sum, o) => sum + (o.subtotal_minor || 0), 0)
 
     return {
       totalSalesMinor,
@@ -151,14 +162,17 @@ export function ReportsPage() {
       takeoutCount,
       taxMinor,
       subtotalMinor,
+      pendingCount: pendingOrders.length,
+      pendingSalesMinor,
+      cancelledCount: cancelledOrders.length,
     }
-  }, [filteredOrders])
+  }, [settledOrders, pendingOrders, cancelledOrders])
 
-  // Payment Breakdown
+  // Payment Breakdown (Calculated from Settled orders)
   const paymentBreakdown = useMemo(() => {
     const map = new Map<string, { count: number; totalMinor: number }>()
 
-    filteredOrders.forEach((o) => {
+    settledOrders.forEach((o) => {
       const method = o.payment_status === 'paid' ? 'Card / Digital' : 'Counter Cash'
       const cur = map.get(method) || { count: 0, totalMinor: 0 }
       cur.count++
@@ -172,9 +186,9 @@ export function ReportsPage() {
       totalMinor: val.totalMinor,
       percent: stats.totalSalesMinor > 0 ? (val.totalMinor / stats.totalSalesMinor) * 100 : 0,
     }))
-  }, [filteredOrders, stats.totalSalesMinor])
+  }, [settledOrders, stats.totalSalesMinor])
 
-  // Hourly Activity
+  // Hourly Activity (Calculated from Settled orders)
   const hourlyActivity = useMemo(() => {
     const hours = Array.from({ length: 15 }, (_, i) => i + 8) // 8 AM to 10 PM
     const data = hours.map((h) => ({
@@ -184,7 +198,7 @@ export function ReportsPage() {
       salesMinor: 0,
     }))
 
-    filteredOrders.forEach((o) => {
+    settledOrders.forEach((o) => {
       const d = new Date(o.placed_at)
       const h = d.getHours()
       const item = data.find((x) => x.hour === h)
@@ -198,13 +212,13 @@ export function ReportsPage() {
     const peakHour = [...data].sort((a, b) => b.salesMinor - a.salesMinor)[0]
 
     return { data, maxSales, peakHour }
-  }, [filteredOrders])
+  }, [settledOrders])
 
-  // Top Selling Items
+  // Top Selling Items (Calculated from Settled orders)
   const topProducts = useMemo(() => {
     const itemMap = new Map<string, { name: string; qty: number; salesMinor: number }>()
 
-    filteredOrders.forEach((o) => {
+    settledOrders.forEach((o) => {
       if (o.items_json) {
         try {
           const items: OrderItemDetail[] = JSON.parse(o.items_json)
@@ -228,7 +242,7 @@ export function ReportsPage() {
     return Array.from(itemMap.values())
       .sort((a, b) => b.qty - a.qty)
       .slice(0, 8)
-  }, [filteredOrders])
+  }, [settledOrders])
 
   // Export CSV
   const handleExportCsv = () => {
@@ -500,23 +514,27 @@ export function ReportsPage() {
           {/* KPI Stat Cards */}
           <section className="metric-grid" style={{ marginBottom: '1.25rem' }}>
             <article>
-              <span>Gross Sales</span>
+              <span>Gross Sales (Settled)</span>
               <strong>{formatMoney(stats.totalSalesMinor)}</strong>
-              <small>{stats.totalOrders} paid receipts in period</small>
+              <small>
+                {stats.totalOrders} confirmed receipts
+                {stats.pendingCount > 0 && ` · ${stats.pendingCount} pending (₱${((stats.pendingSalesMinor || 0) / 100).toFixed(2)}) excluded`}
+              </small>
             </article>
 
             <article>
-              <span>Total Orders</span>
+              <span>Confirmed Orders</span>
               <strong>{stats.totalOrders}</strong>
               <small>
                 {stats.dineInCount} Dine In · {stats.takeoutCount} Takeout
+                {stats.pendingCount > 0 && ` (+${stats.pendingCount} pending)`}
               </small>
             </article>
 
             <article>
               <span>Average Order Value</span>
               <strong>{formatMoney(stats.avgOrderValueMinor)}</strong>
-              <small>Per customer basket</small>
+              <small>Per confirmed basket</small>
             </article>
 
             <article>
@@ -803,7 +821,17 @@ export function ReportsPage() {
                         <td>{formatMoney(o.subtotal_minor || 0)}</td>
                         <td>{formatMoney(o.tax_minor || 0)}</td>
                         <td>
-                          <strong style={{ color: '#1c1917' }}>{formatMoney(o.total_minor || 0)}</strong>
+                          <strong
+                            style={{
+                              color: o.fulfillment_status === 'pending' ? '#854d0e' : o.fulfillment_status === 'cancelled' ? '#a8a29e' : '#1c1917',
+                              textDecoration: o.fulfillment_status === 'cancelled' ? 'line-through' : 'none',
+                            }}
+                          >
+                            {formatMoney(o.total_minor || 0)}
+                          </strong>
+                          {o.fulfillment_status === 'pending' && (
+                            <small style={{ display: 'block', color: '#ea580c', fontSize: '0.65rem', fontWeight: 700 }}>Uncollected</small>
+                          )}
                         </td>
                         <td>
                           <span className={`status status--${o.fulfillment_status}`}>{o.fulfillment_status}</span>

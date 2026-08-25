@@ -22,12 +22,20 @@ class AdminOrderController extends Controller
         $data = $request->validate(['status' => ['required', Rule::in(self::STATUSES)]]);
         $before = DB::table('orders')->where('id', $order)->firstOrFail();
         DB::transaction(function () use ($request, $order, $before, $data): void {
-            DB::table('orders')->where('id', $order)->update(['fulfillment_status' => $data['status'], 'updated_at' => now()]);
+            $updates = [
+                'fulfillment_status' => $data['status'],
+                'updated_at' => now(),
+            ];
+            if (in_array($data['status'], ['confirmed', 'preparing', 'ready', 'completed']) && $before->payment_status === 'pending') {
+                $updates['payment_status'] = 'paid';
+            }
+            DB::table('orders')->where('id', $order)->update($updates);
             DB::table('audit_logs')->insert([
                 'actor_id' => $request->user()->id, 'action' => 'order.status_changed',
                 'entity_type' => 'order', 'entity_id' => (string) $order,
-                'before' => json_encode(['fulfillment_status' => $before->fulfillment_status]),
-                'after' => json_encode(['fulfillment_status' => $data['status']]), 'created_at' => now(),
+                'before' => json_encode(['fulfillment_status' => $before->fulfillment_status, 'payment_status' => $before->payment_status]),
+                'after' => json_encode(['fulfillment_status' => $data['status'], 'payment_status' => $updates['payment_status'] ?? $before->payment_status]),
+                'created_at' => now(),
             ]);
         });
 
