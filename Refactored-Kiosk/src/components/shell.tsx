@@ -17,12 +17,15 @@ export function MenuShell({ children }: { children: ReactNode }) {
   return <div className="app-shell menu-shell">
     {children}
     <footer className="order-dock">
-      <button className="order-dock__cancel" onClick={cancel}>Cancel</button>
-      <div className="order-dock__summary">
-        <small>Your order</small>
-        <span><strong>{count}</strong> item{count === 1 ? '' : 's'} &middot; {formatMoney(cartSubtotal(items))}</span>
+      <button className="order-dock__cancel" onClick={cancel} aria-label="Cancel order">Cancel</button>
+      <button className="order-dock__pay-btn" disabled={!items.length} onClick={() => navigate('/cart')}>
+        <strong>Review &amp; Pay Order</strong>
+        {items.length > 0 && <small>{count} {count === 1 ? 'item' : 'items'}</small>}
+      </button>
+      <div className="order-dock__total-box">
+        <small>Order Total</small>
+        <strong>{formatMoney(cartSubtotal(items))}</strong>
       </div>
-      <button className="order-dock__button" disabled={!items.length} onClick={() => navigate('/cart')}>Order</button>
     </footer>
   </div>
 }

@@ -8,6 +8,7 @@ const orderSchema = z.object({
   id: z.number(), order_number: z.string(), terminal_id: z.string(), dining_type: z.string(),
   subtotal_minor: z.number(), tax_minor: z.number(), total_minor: z.number(), payment_status: z.string(),
   fulfillment_status: z.string(), placed_at: z.string(),
+  items_json: z.string().nullable().optional(),
 })
 const productSchema = z.object({
   id: z.number(), category_id: z.number(), category_name: z.string(), sku: z.string(), name: z.string(),

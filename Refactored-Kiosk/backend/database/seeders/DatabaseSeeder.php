@@ -15,9 +15,10 @@ class DatabaseSeeder extends Seeder
             ['email' => 'admin@kiosk.local'],
             ['name' => 'Kiosk Administrator', 'password' => Hash::make('Admin123!'), 'role' => 'admin'],
         );
+
         DB::table('system_settings')->insertOrIgnore([
             'id' => 1,
-            'brand_name' => 'Table & Company',
+            'brand_name' => 'KIOSK',
             'tax_rate_basis_points' => 1200,
             'service_mode' => 'both',
             'currency' => 'PHP',
@@ -30,25 +31,46 @@ class DatabaseSeeder extends Seeder
             'created_at' => now(),
             'updated_at' => now(),
         ]);
-        if (DB::table('categories')->exists()) {
-            return;
-        }
 
         $now = now();
-        DB::table('categories')->insert([
-            ['id' => 1, 'name' => 'Featured', 'display_order' => 1, 'active' => true, 'created_at' => $now, 'updated_at' => $now],
-            ['id' => 2, 'name' => 'Meals', 'display_order' => 2, 'active' => true, 'created_at' => $now, 'updated_at' => $now],
-            ['id' => 3, 'name' => 'Drinks', 'display_order' => 3, 'active' => true, 'created_at' => $now, 'updated_at' => $now],
-        ]);
-        DB::table('products')->insert([
-            ['category_id' => 1, 'sku' => 'MEAL-001', 'name' => 'Crispy Chicken Plate', 'description' => 'Golden chicken, garlic rice, garden slaw, and gravy.', 'price_minor' => 24900, 'emoji' => '🍗', 'accent' => '#EFC767', 'active' => true, 'available' => true, 'created_at' => $now, 'updated_at' => $now],
-            ['category_id' => 1, 'sku' => 'BRG-001', 'name' => 'The House Burger', 'description' => 'Smashed beef, cheddar, pickles, onion, and secret sauce.', 'price_minor' => 21900, 'emoji' => '🍔', 'accent' => '#DF8F65', 'active' => true, 'available' => true, 'created_at' => $now, 'updated_at' => $now],
-            ['category_id' => 3, 'sku' => 'DRK-001', 'name' => 'Citrus Cooler', 'description' => 'Lemon, orange, mint, and sparkling water.', 'price_minor' => 8900, 'emoji' => '🍊', 'accent' => '#F3AA72', 'active' => true, 'available' => true, 'created_at' => $now, 'updated_at' => $now],
-        ]);
-        DB::table('orders')->insert([
-            ['order_number' => '1042', 'terminal_id' => 'KIOSK-01', 'dining_type' => 'dine-in', 'subtotal_minor' => 24900, 'tax_minor' => 2988, 'total_minor' => 27888, 'payment_status' => 'paid', 'fulfillment_status' => 'preparing', 'placed_at' => now()->subMinutes(8), 'created_at' => $now, 'updated_at' => $now],
-            ['order_number' => '1041', 'terminal_id' => 'KIOSK-02', 'dining_type' => 'takeout', 'subtotal_minor' => 30800, 'tax_minor' => 3696, 'total_minor' => 34496, 'payment_status' => 'paid', 'fulfillment_status' => 'ready', 'placed_at' => now()->subMinutes(16), 'created_at' => $now, 'updated_at' => $now],
-            ['order_number' => '1040', 'terminal_id' => 'KIOSK-01', 'dining_type' => 'dine-in', 'subtotal_minor' => 21900, 'tax_minor' => 2628, 'total_minor' => 24528, 'payment_status' => 'pending', 'fulfillment_status' => 'pending', 'placed_at' => now()->subMinutes(23), 'created_at' => $now, 'updated_at' => $now],
-        ]);
+        $categories = [
+            ['id' => 1, 'name' => 'Main', 'display_order' => 1, 'active' => true],
+            ['id' => 2, 'name' => 'Burgers', 'display_order' => 2, 'active' => true],
+            ['id' => 3, 'name' => 'Combo Meals', 'display_order' => 3, 'active' => true],
+            ['id' => 4, 'name' => 'Meals', 'display_order' => 4, 'active' => true],
+            ['id' => 5, 'name' => 'Sides', 'display_order' => 5, 'active' => true],
+            ['id' => 6, 'name' => 'Drinks', 'display_order' => 6, 'active' => true],
+            ['id' => 7, 'name' => 'Desserts', 'display_order' => 7, 'active' => true],
+        ];
+
+        foreach ($categories as $cat) {
+            DB::table('categories')->updateOrInsert(
+                ['id' => $cat['id']],
+                array_merge($cat, ['created_at' => $now, 'updated_at' => $now])
+            );
+        }
+
+        $products = [
+            ['id' => 1, 'category_id' => 3, 'sku' => 'CMB-001', 'name' => 'Burger Menu Combo', 'description' => 'Build your burger meal in two easy steps.', 'price_minor' => 25900, 'emoji' => '🍔', 'accent' => '#fff4ed', 'active' => true, 'available' => true],
+            ['id' => 2, 'category_id' => 4, 'sku' => 'MEAL-001', 'name' => 'Crispy Chicken Plate', 'description' => 'Golden chicken, garlic rice, garden slaw, and house gravy.', 'price_minor' => 24900, 'emoji' => '🍗', 'accent' => '#fff5e9', 'active' => true, 'available' => true],
+            ['id' => 3, 'category_id' => 2, 'sku' => 'BRG-001', 'name' => 'The House Burger', 'description' => 'Smashed beef, cheddar, pickles, onion, and secret sauce.', 'price_minor' => 21900, 'emoji' => '🍔', 'accent' => '#fff3e9', 'active' => true, 'available' => true],
+            ['id' => 4, 'category_id' => 4, 'sku' => 'MEAL-002', 'name' => 'Chicken Rice Bowl', 'description' => 'Crispy chicken served with steamed rice and house gravy.', 'price_minor' => 23900, 'emoji' => '🍛', 'accent' => '#f7f5eb', 'active' => true, 'available' => true],
+            ['id' => 5, 'category_id' => 4, 'sku' => 'PASTA-001', 'name' => 'Chicken Spaghetti', 'description' => 'Sweet-style spaghetti topped with a crispy chicken piece.', 'price_minor' => 18900, 'emoji' => '🍝', 'accent' => '#fff4eb', 'active' => true, 'available' => true],
+            ['id' => 6, 'category_id' => 5, 'sku' => 'SIDE-001', 'name' => 'Golden Fries', 'description' => 'Crisp golden fries seasoned with sea salt.', 'price_minor' => 9900, 'emoji' => '🍟', 'accent' => '#fff8df', 'active' => true, 'available' => true],
+            ['id' => 7, 'category_id' => 6, 'sku' => 'DRK-001', 'name' => 'Citrus Cooler', 'description' => 'A bright citrus drink served cold over ice.', 'price_minor' => 8900, 'emoji' => '🍹', 'accent' => '#fff6df', 'active' => true, 'available' => true],
+            ['id' => 8, 'category_id' => 7, 'sku' => 'DSR-001', 'name' => 'Creamy Sundae', 'description' => 'Soft serve finished with a rich chocolate swirl.', 'price_minor' => 7900, 'emoji' => '🍦', 'accent' => '#fff4f1', 'active' => true, 'available' => true],
+            ['id' => 9, 'category_id' => 2, 'sku' => 'BRG-002', 'name' => 'Big Burger', 'description' => 'A hearty double-stack burger with our signature sauce.', 'price_minor' => 22900, 'emoji' => '🍔', 'accent' => '#fff2e8', 'active' => true, 'available' => true],
+            ['id' => 10, 'category_id' => 2, 'sku' => 'BRG-003', 'name' => 'Double Cheese Burger', 'description' => 'Two beef patties layered with melted cheese.', 'price_minor' => 23900, 'emoji' => '🍔', 'accent' => '#fff5e9', 'active' => true, 'available' => true],
+            ['id' => 11, 'category_id' => 4, 'sku' => 'PASTA-002', 'name' => 'Classic Spaghetti', 'description' => 'Comforting sweet-style spaghetti with grated cheese.', 'price_minor' => 14900, 'emoji' => '🍝', 'accent' => '#fff4ed', 'active' => true, 'available' => true],
+            ['id' => 12, 'category_id' => 1, 'sku' => 'SND-001', 'name' => 'Chicken Sandwich', 'description' => 'Crispy chicken, lettuce, and creamy dressing in a soft bun.', 'price_minor' => 17900, 'emoji' => '🥪', 'accent' => '#f7f6ec', 'active' => true, 'available' => true],
+            ['id' => 13, 'category_id' => 2, 'sku' => 'BRG-004', 'name' => 'Bacon Burger', 'description' => 'A juicy beef burger finished with crisp smoky bacon.', 'price_minor' => 22900, 'emoji' => '🍔', 'accent' => '#fff2e8', 'active' => true, 'available' => false],
+        ];
+
+        foreach ($products as $prod) {
+            DB::table('products')->updateOrInsert(
+                ['id' => $prod['id']],
+                array_merge($prod, ['created_at' => $now, 'updated_at' => $now])
+            );
+        }
     }
 }

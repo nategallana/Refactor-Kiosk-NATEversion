@@ -4,39 +4,47 @@ import type { Catalog, Product } from '../domain/catalog'
 import { catalogRepository } from '../data/catalog'
 import { formatMoney } from '../domain/order'
 import { MenuShell } from '../components/shell'
+import { AdBanner } from '../components/ad-banner'
+import { useKioskStore } from '../store/kiosk-store'
 
-const categoryIcons: Record<string, string> = {
-  featured: '☰',
-  burgers: '🍔',
-  combos: '🍱',
-  meals: '🍽️',
-  sides: '🍟',
-  drinks: '🥤',
-  desserts: '🍦',
+const categoryIcons: Record<string, { img?: string; emoji: string }> = {
+  featured: { img: '/menu/burger-bundle.png', emoji: '☰' },
+  burgers: { img: '/menu/cheeseburger.png', emoji: '🍔' },
+  combos: { img: '/menu/burger-bundle.png', emoji: '🍱' },
+  meals: { img: '/menu/chicken-rice.png', emoji: '🍗' },
+  sides: { img: '/menu/fries.png', emoji: '🍟' },
+  drinks: { img: '/menu/drink.png', emoji: '🥤' },
+  desserts: { img: '/menu/dessert.png', emoji: '🍦' },
 }
 
 function ProductArtwork({ product }: { product: Product }) {
   return product.imageUrl
-    ? <img src={product.imageUrl} alt="" />
+    ? <img src={product.imageUrl} alt={product.name} />
     : <span>{product.emoji}</span>
 }
 
 function ProductCard({ product }: { product: Product }) {
   const navigate = useNavigate()
   const openProduct = () => navigate('/products/' + product.id)
-  const className = 'product-card' + (product.available ? '' : ' product-card--unavailable')
+  const className = 'kiosk-card' + (product.available ? '' : ' kiosk-card--unavailable')
 
-  return <article className={className}>
-    <button className="product-card__main" disabled={!product.available} onClick={openProduct}>
-      <span className="product-card__image" style={{ background: product.accent }}>
+  return (
+    <button
+      type="button"
+      className={className}
+      disabled={!product.available}
+      onClick={openProduct}
+      aria-label={`Select ${product.name}, ${formatMoney(product.basePrice)}`}
+    >
+      <span className="kiosk-card__image" style={{ background: product.accent || '#fff7ed' }}>
         <ProductArtwork product={product} />
-        {!product.available && <b>Unavailable</b>}
+        {!product.available && <b className="kiosk-card__badge">Unavailable</b>}
       </span>
-      <span className="product-card__name">{product.name}</span>
-      <strong className="product-card__price">{formatMoney(product.basePrice)}</strong>
+      <span className="kiosk-card__code">{product.sku}</span>
+      <h3 className="kiosk-card__title">{product.name}</h3>
+      <strong className="kiosk-card__price">{formatMoney(product.basePrice)}</strong>
     </button>
-    <button className="product-card__add" disabled={!product.available} onClick={openProduct}>+ Add</button>
-  </article>
+  )
 }
 
 export function MenuScreen() {
@@ -44,6 +52,7 @@ export function MenuScreen() {
   const [error, setError] = useState(false)
   const [params, setParams] = useSearchParams()
   const category = params.get('category') ?? 'featured'
+  const diningType = useKioskStore((state) => state.diningType)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -61,28 +70,60 @@ export function MenuScreen() {
     () => catalog?.products.filter((product) => product.active && (category === 'featured' || product.categoryId === category)) ?? [],
     [catalog, category],
   )
-  const heading = category === 'featured'
-    ? 'All Items'
-    : categories.find((item) => item.id === category)?.name ?? 'All Items'
+  const activeCategory = categories.find((item) => item.id === category)
+  const heading = category === 'featured' ? 'All Items' : (activeCategory?.name ?? 'Menu')
 
-  return <MenuShell><main className="portrait-menu screen-enter">
-    <nav className="menu-categories" aria-label="Menu categories">
-      {categories.map((item) => <button
-        key={item.id}
-        className={category === item.id ? 'active' : ''}
-        onClick={() => setParams({ category: item.id })}
-      >
-        <span aria-hidden="true">{categoryIcons[item.id] ?? '•'}</span>
-        <small>{item.name}</small>
-      </button>)}
-    </nav>
+  return (
+    <MenuShell>
+      <main className="kiosk-menu-page screen-enter">
+        {/* Top Ad Promotional Banner */}
+        <AdBanner />
 
-    <section className="portrait-menu__content">
-      <h1>{heading}</h1>
-      {!catalog && !error && <div className="state-card">Preparing today&rsquo;s menu&hellip;</div>}
-      {error && <div className="state-card"><strong>We couldn&rsquo;t load the menu.</strong><span>Please ask a team member for help.</span></div>}
-      {catalog && products.length === 0 && <div className="state-card"><strong>No items in this category.</strong><span>Please choose another category.</span></div>}
-      <div className="product-grid">{products.map((product) => <ProductCard key={product.id} product={product} />)}</div>
-    </section>
-  </main></MenuShell>
+        {/* Category Header Bar */}
+        <div className="kiosk-header-bar">
+          <div className="kiosk-header-bar__title">
+            <h2>{heading}</h2>
+          </div>
+          <div className="kiosk-header-bar__badge">
+            <span>{diningType === 'takeout' ? '🥡 Takeout' : '🍽️ Dine-In'}</span>
+          </div>
+        </div>
+
+        {/* Main Body: Left Vertical Sidebar + Right 3-Column Product Grid */}
+        <div className="kiosk-menu-body">
+          <aside className="kiosk-sidebar" aria-label="Menu categories">
+            <div className="kiosk-sidebar__nav">
+              {categories.map((item) => {
+                const isActive = category === item.id
+                const meta = categoryIcons[item.id]
+                return (
+                  <button
+                    key={item.id}
+                    className={`kiosk-sidebar__tab ${isActive ? 'active' : ''}`}
+                    onClick={() => setParams({ category: item.id })}
+                  >
+                    <div className="kiosk-sidebar__thumb">
+                      {meta?.img ? <img src={meta.img} alt="" /> : <span>{meta?.emoji ?? '•'}</span>}
+                    </div>
+                    <span className="kiosk-sidebar__label">{item.name}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </aside>
+
+          <section className="kiosk-products-container">
+            {!catalog && !error && <div className="state-card">Preparing today&rsquo;s menu&hellip;</div>}
+            {error && <div className="state-card"><strong>We couldn&rsquo;t load the menu.</strong><span>Please ask a team member for help.</span></div>}
+            {catalog && products.length === 0 && <div className="state-card"><strong>No items in this category.</strong><span>Please choose another category.</span></div>}
+            <div className="kiosk-products-grid">
+              {products.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
+          </section>
+        </div>
+      </main>
+    </MenuShell>
+  )
 }

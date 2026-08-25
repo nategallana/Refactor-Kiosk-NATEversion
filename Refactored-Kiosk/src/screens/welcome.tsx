@@ -9,7 +9,7 @@ export function WelcomeScreen() {
       <Brand />
       <div className="welcome__message">
         <p className="welcome__eyebrow">FRESHLY MADE FOR YOU</p>
-        <h1>Welcome to<br /><em>Table &amp; Company</em></h1>
+        <h1>Welcome to<br /><em>KIOSK</em></h1>
         <p className="welcome__lead">Order your favorites in just a few simple steps.</p>
       </div>
       <div className="welcome__visual" aria-hidden="true">
