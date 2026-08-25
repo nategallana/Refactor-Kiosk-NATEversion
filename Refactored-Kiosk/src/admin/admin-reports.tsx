@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { formatMoney } from '../domain/order'
-import { getOrders, type AdminOrder } from './admin-api'
+import { getOrders, getSettings, type AdminOrder } from './admin-api'
 import { AdminShell } from './admin-shell'
 import { useAdminStore } from './admin-store'
 
@@ -15,6 +15,7 @@ interface OrderItemDetail {
 export function ReportsPage() {
   const token = useAdminStore((state) => state.token)!
   const [orders, setOrders] = useState<AdminOrder[]>([])
+  const [brandName, setBrandName] = useState<string>('Kiosk Store')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -28,9 +29,15 @@ export function ReportsPage() {
 
   useEffect(() => {
     setLoading(true)
-    getOrders(token)
-      .then((data) => {
-        setOrders(data.orders)
+    Promise.all([
+      getOrders(token),
+      getSettings(token).catch(() => null),
+    ])
+      .then(([ordersData, settingsData]) => {
+        setOrders(ordersData.orders)
+        if (settingsData?.settings?.brand_name) {
+          setBrandName(settingsData.settings.brand_name)
+        }
         setError('')
       })
       .catch((err: Error) => setError(err.message))
@@ -247,7 +254,8 @@ export function ReportsPage() {
     const encodedUri = encodeURI(csvContent)
     const link = document.createElement('a')
     link.setAttribute('href', encodedUri)
-    link.setAttribute('download', `Kiosk_Sales_Report_${datePreset}_${new Date().toISOString().slice(0, 10)}.csv`)
+    const cleanBrand = brandName.replace(/[^a-zA-Z0-9]/g, '_')
+    link.setAttribute('download', `${cleanBrand}_Sales_Report_${datePreset}_${new Date().toISOString().slice(0, 10)}.csv`)
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
@@ -264,7 +272,7 @@ export function ReportsPage() {
       <!DOCTYPE html>
       <html>
       <head>
-        <title>Daily Sales Report / Z-Reading</title>
+        <title>${brandName} - Daily Sales Report / Z-Reading</title>
         <style>
           body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace; margin: 2rem; color: #1c1917; font-size: 13px; }
           .header { text-align: center; border-bottom: 2px dashed #444; padding-bottom: 1rem; margin-bottom: 1rem; }
@@ -282,7 +290,7 @@ export function ReportsPage() {
       </head>
       <body>
         <div class="header">
-          <h1>GoodTaste Kiosk Store</h1>
+          <h1>${brandName}</h1>
           <p>Official Daily Sales & POS Audit Report</p>
           <p>Period: ${dateLabel} (${new Date().toLocaleDateString()})</p>
           <p>Generated: ${new Date().toLocaleString()}</p>
