@@ -42,7 +42,24 @@ function ProductCard({ product }: { product: Product }) {
       </span>
       <span className="kiosk-card__code">{product.sku}</span>
       <h3 className="kiosk-card__title">{product.name}</h3>
-      <strong className="kiosk-card__price">{formatMoney(product.basePrice)}</strong>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginTop: 'auto', paddingTop: '0.4rem' }}>
+        <strong className="kiosk-card__price">{formatMoney(product.basePrice)}</strong>
+        <span
+          style={{
+            background: product.available ? '#ea580c' : '#a8a29e',
+            color: '#fff',
+            borderRadius: '999px',
+            padding: '0.35rem 0.85rem',
+            fontSize: '0.82rem',
+            fontWeight: 800,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.2rem',
+          }}
+        >
+          {product.available ? '+ Order' : 'Sold Out'}
+        </span>
+      </div>
     </button>
   )
 }
