@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { IdleGuard } from './components/idle-guard'
 import { WelcomeScreen } from './screens/welcome'
@@ -7,8 +8,15 @@ import { ProductScreen } from './screens/product'
 import { CartScreen } from './screens/cart'
 import { PaymentScreen } from './screens/payment'
 import { TicketScreen } from './screens/ticket'
+import { useKioskStore } from './store/kiosk-store'
 
 export function App() {
+  const fetchSettings = useKioskStore((state) => state.fetchSettings)
+
+  useEffect(() => {
+    fetchSettings()
+  }, [fetchSettings])
+
   return <BrowserRouter><IdleGuard /><Routes>
     <Route path="/" element={<WelcomeScreen />} />
     <Route path="/dining" element={<DiningScreen />} />

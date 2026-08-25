@@ -10,7 +10,16 @@ export function PaymentScreen() {
   const diningType = useKioskStore((state) => state.diningType)
   const items = useKioskStore((state) => state.items)
   const setReceipt = useKioskStore((state) => state.setReceipt)
-  const [method, setMethod] = useState<PaymentMethod | null>(null)
+  const settings = useKioskStore((state) => state.settings)
+  
+  const cardEnabled = settings?.card_payment_enabled ?? true
+  const counterEnabled = settings?.counter_payment_enabled ?? true
+
+  const [method, setMethod] = useState<PaymentMethod | null>(() => {
+    if (cardEnabled && !counterEnabled) return 'card'
+    if (counterEnabled && !cardEnabled) return 'counter'
+    return null
+  })
   const [status, setStatus] = useState<'idle' | 'processing' | 'failed'>('idle')
   const [showConfirmModal, setShowConfirmModal] = useState(false)
   const submitting = useRef(false)
@@ -85,22 +94,26 @@ export function PaymentScreen() {
         <h1>How would you like<br /><em>to pay?</em></h1>
 
         <div className="payment-options">
-          <button
-            className={method === 'card' ? 'payment-card active' : 'payment-card'}
-            onClick={() => setMethod('card')}
-          >
-            <span><Card /></span>
-            <strong>Card at kiosk</strong>
-            <small>Credit or debit card</small>
-          </button>
-          <button
-            className={method === 'counter' ? 'payment-card active' : 'payment-card'}
-            onClick={() => setMethod('counter')}
-          >
-            <span><Store /></span>
-            <strong>Pay at counter</strong>
-            <small>Cash, card, or e-wallet</small>
-          </button>
+          {cardEnabled && (
+            <button
+              className={method === 'card' ? 'payment-card active' : 'payment-card'}
+              onClick={() => setMethod('card')}
+            >
+              <span><Card /></span>
+              <strong>Card at kiosk</strong>
+              <small>Credit or debit card</small>
+            </button>
+          )}
+          {counterEnabled && (
+            <button
+              className={method === 'counter' ? 'payment-card active' : 'payment-card'}
+              onClick={() => setMethod('counter')}
+            >
+              <span><Store /></span>
+              <strong>Pay at counter</strong>
+              <small>Cash, card, or e-wallet</small>
+            </button>
+          )}
         </div>
 
         <div className="payment-summary-bar">

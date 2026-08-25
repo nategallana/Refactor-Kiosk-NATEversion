@@ -9,7 +9,9 @@ export function TicketScreen() {
   const navigate = useNavigate()
   const receipt = useKioskStore((state) => state.receipt)
   const reset = useKioskStore((state) => state.reset)
-  const [secondsLeft, setSecondsLeft] = useState(10)
+  const settings = useKioskStore((state) => state.settings)
+  const autoResetSeconds = settings?.auto_reset_seconds || 10
+  const [secondsLeft, setSecondsLeft] = useState(autoResetSeconds)
 
   useEffect(() => {
     if (!receipt) return
@@ -53,6 +55,9 @@ export function TicketScreen() {
 
       <article className="receipt">
         <Brand compact />
+        {settings?.receipt_header && (
+          <p style={{ fontWeight: 600, color: '#ea580c', margin: '0.2rem 0' }}>{settings.receipt_header}</p>
+        )}
         <p>
           {receipt.diningType === 'dine-in' ? 'DINE IN' : 'TAKE OUT'} · {new Date(receipt.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
         </p>
@@ -82,7 +87,7 @@ export function TicketScreen() {
         </div>
         <p className="receipt__footer">
           Payment: {receipt.paymentMethod === 'counter' ? 'PAY AT COUNTER' : 'CARD'}<br />
-          Thank you for dining with us.
+          {settings?.receipt_footer || 'Thank you for dining with us.'}
         </p>
       </article>
     </main>
