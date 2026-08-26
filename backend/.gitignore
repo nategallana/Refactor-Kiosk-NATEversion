@@ -1,1 +1,12 @@
-
+﻿/vendor/
+/.env
+/.env.*
+!/.env.example
+/storage/*.key
+/storage/logs/*.log
+/storage/framework/cache/data/*
+/storage/framework/sessions/*
+/storage/framework/views/*
+/database/*.sqlite
+/database/*.sqlite-journal
+.phpunit.result.cache
