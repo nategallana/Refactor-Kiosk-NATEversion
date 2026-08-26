@@ -1,0 +1,23 @@
+node_modules
+dist
+coverage
+.env
+.env.*
+!.env.example
+*.local
+*.log
+.DS_Store
+
+# Backend ignores
+/backend/vendor/
+/backend/.env
+/backend/.env.*
+!/backend/.env.example
+/backend/storage/*.key
+/backend/storage/logs/*.log
+/backend/storage/framework/cache/data/*
+/backend/storage/framework/sessions/*
+/backend/storage/framework/views/*
+/backend/database/*.sqlite
+/backend/database/*.sqlite-journal
+/backend/.phpunit.result.cache
