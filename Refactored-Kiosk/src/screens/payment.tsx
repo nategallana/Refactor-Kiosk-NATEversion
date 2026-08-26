@@ -1,14 +1,41 @@
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { z } from 'zod'
 import { ArrowLeft, Card, Store } from '../components/icons'
 import { Brand } from '../components/brand'
 import { calculateTotals, formatMoney, type PaymentMethod, type OrderReceipt } from '../domain/order'
 import { useKioskStore } from '../store/kiosk-store'
 
+const createdOrderSchema = z.object({
+  order: z.object({
+    id: z.number(),
+    order_number: z.string(),
+    subtotal_minor: z.number().int().nonnegative(),
+    tax_minor: z.number().int().nonnegative(),
+    total_minor: z.number().int().nonnegative(),
+    items: z.array(z.object({
+      productId: z.number(),
+      sku: z.string(),
+      name: z.string(),
+      quantity: z.number().int().positive(),
+      unitPrice: z.number().int().nonnegative(),
+      selections: z.array(z.object({
+        groupId: z.string(),
+        groupName: z.string(),
+        valueId: z.string(),
+        valueName: z.string(),
+        priceDelta: z.number().int(),
+      })),
+      note: z.string(),
+    })),
+  }),
+})
+
 export function PaymentScreen() {
   const navigate = useNavigate()
   const diningType = useKioskStore((state) => state.diningType)
   const items = useKioskStore((state) => state.items)
+  const getCheckoutIdempotencyKey = useKioskStore((state) => state.getCheckoutIdempotencyKey)
   const setReceipt = useKioskStore((state) => state.setReceipt)
   const settings = useKioskStore((state) => state.settings)
   
@@ -37,46 +64,59 @@ export function PaymentScreen() {
     setStatus('processing')
     setShowConfirmModal(false)
 
-    const orderNumber = String(Math.floor(1000 + Math.random() * 9000))
     const apiBase = import.meta.env.VITE_API_BASE_URL || `${window.location.protocol}//${window.location.hostname}:8000/api/v1`
+    const orderRequest = {
+      terminal_id: 'KIOSK-01',
+      dining_type: diningType,
+      payment_method: method,
+      items: items.map((i) => ({
+        sku: i.sku,
+        quantity: i.quantity,
+        note: i.note,
+        selections: i.selections.map((selection) => ({
+          groupId: selection.groupId,
+          valueId: selection.valueId,
+        })),
+      })),
+    }
+    const idempotencyKey = getCheckoutIdempotencyKey(JSON.stringify(orderRequest))
 
     try {
-      await fetch(`${apiBase}/orders`, {
+      const response = await fetch(`${apiBase}/orders`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({
-          order_number: orderNumber,
-          terminal_id: 'KIOSK-01',
-          dining_type: diningType,
-          payment_method: method,
-          subtotal_minor: totals.subtotal,
-          tax_minor: totals.tax,
-          total_minor: totals.total,
-          items: items.map((i) => ({
-            sku: i.sku,
-            name: i.name,
-            quantity: i.quantity,
-            unitPrice: i.unitPrice,
-            note: i.note,
-            selections: i.selections,
-          })),
-        }),
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'Idempotency-Key': idempotencyKey },
+        body: JSON.stringify(orderRequest),
       })
-    } catch {
-      // Offline fallback
-    }
+      const payload: unknown = await response.json().catch(() => null)
+      if (!response.ok) throw new Error('Order creation failed.')
+      const { order } = createdOrderSchema.parse(payload)
 
-    const receipt: OrderReceipt = {
-      id: crypto.randomUUID(),
-      orderNumber,
-      createdAt: new Date().toISOString(),
-      diningType,
-      paymentMethod: method,
-      items,
-      ...totals,
+      const receipt: OrderReceipt = {
+        id: String(order.id),
+        orderNumber: order.order_number,
+        createdAt: new Date().toISOString(),
+        diningType,
+        paymentMethod: method,
+        items: order.items.map((item, index) => ({
+          id: `${order.id}-${index}`,
+          productId: String(item.productId),
+          sku: item.sku,
+          name: item.name,
+          unitPrice: item.unitPrice,
+          quantity: item.quantity,
+          selections: item.selections,
+          note: item.note,
+        })),
+        subtotal: order.subtotal_minor,
+        tax: order.tax_minor,
+        total: order.total_minor,
+      }
+      setReceipt(receipt)
+      navigate('/ticket', { replace: true })
+    } catch {
+      submitting.current = false
+      setStatus('failed')
     }
-    setReceipt(receipt)
-    navigate('/ticket', { replace: true })
   }
 
   return (

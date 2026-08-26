@@ -30,7 +30,7 @@ it('reads and updates persistent system settings with an audit record', function
 
     $this->actingAs($admin)->getJson('/api/v1/admin/settings')
         ->assertOk()
-        ->assertJsonPath('settings.brand_name', 'Table & Company');
+        ->assertJsonPath('settings.brand_name', 'KIOSK');
 
     $this->actingAs($admin)->putJson('/api/v1/admin/settings', [
         'brand_name' => 'North Hall Kiosk',

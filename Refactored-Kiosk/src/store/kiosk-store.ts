@@ -26,34 +26,54 @@ export const defaultSettings: PublicSettings = {
   tax_rate_basis_points: 1200,
 }
 
+interface CheckoutAttempt {
+  key: string
+  requestFingerprint: string
+}
+
 interface KioskState {
   diningType: DiningType | null
   items: CartItem[]
   receipt: OrderReceipt | null
+  checkoutAttempt: CheckoutAttempt | null
   settings: PublicSettings
   setDiningType: (value: DiningType) => void
   addItem: (item: CartItem) => void
   updateQuantity: (id: string, quantity: number) => void
   removeItem: (id: string) => void
+  getCheckoutIdempotencyKey: (requestFingerprint: string) => string
   setReceipt: (receipt: OrderReceipt) => void
   setSettings: (settings: PublicSettings) => void
   fetchSettings: () => Promise<void>
   reset: () => void
 }
 
-const initialState = { diningType: null, items: [], receipt: null }
+const initialState = { diningType: null, items: [], receipt: null, checkoutAttempt: null }
 const apiBase = import.meta.env.VITE_API_BASE_URL || `${window.location.protocol}//${window.location.hostname}:8000/api/v1`
 
-export const useKioskStore = create<KioskState>()(persist((set) => ({
+export const useKioskStore = create<KioskState>()(persist((set, get) => ({
   ...initialState,
   settings: defaultSettings,
-  setDiningType: (diningType) => set({ diningType }),
-  addItem: (item) => set((state) => ({ items: [...state.items, item] })),
+  setDiningType: (diningType) => set((state) => ({
+    diningType,
+    checkoutAttempt: state.diningType === diningType ? state.checkoutAttempt : null,
+  })),
+  addItem: (item) => set((state) => ({ items: [...state.items, item], checkoutAttempt: null })),
   updateQuantity: (id, quantity) => set((state) => ({
     items: quantity < 1 ? state.items.filter((item) => item.id !== id) : state.items.map((item) => item.id === id ? { ...item, quantity } : item),
+    checkoutAttempt: null,
   })),
-  removeItem: (id) => set((state) => ({ items: state.items.filter((item) => item.id !== id) })),
-  setReceipt: (receipt) => set({ receipt, items: [] }),
+  removeItem: (id) => set((state) => ({ items: state.items.filter((item) => item.id !== id), checkoutAttempt: null })),
+  getCheckoutIdempotencyKey: (requestFingerprint) => {
+    const existing = get().checkoutAttempt
+    if (existing?.requestFingerprint === requestFingerprint) return existing.key
+
+    const key = crypto.randomUUID()
+    set({ checkoutAttempt: { key, requestFingerprint } })
+
+    return key
+  },
+  setReceipt: (receipt) => set({ receipt, items: [], checkoutAttempt: null }),
   setSettings: (settings) => set({ settings }),
   fetchSettings: async () => {
     try {
@@ -81,4 +101,4 @@ export const useKioskStore = create<KioskState>()(persist((set) => ({
     }
   },
   reset: () => set((state) => ({ ...initialState, settings: state.settings })),
-}), { name: 'standalone-kiosk-cart', partialize: ({ diningType, items, receipt, settings }) => ({ diningType, items, receipt, settings }) }))
+}), { name: 'standalone-kiosk-cart', partialize: ({ diningType, items, receipt, checkoutAttempt, settings }) => ({ diningType, items, receipt, checkoutAttempt, settings }) }))

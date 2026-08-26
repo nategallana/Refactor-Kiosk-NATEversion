@@ -10,12 +10,14 @@ A clean-room, touch-first customer ordering application. This workspace does not
 - Product options, add-ons, quantity, notes, and integer minor-unit pricing
 - Persisted Zustand cart with order review and VAT totals
 - Payment selection with duplicate-submit protection
+- Server-authoritative order validation, modifier pricing, tax calculation, and receipt numbering
+- Transactional order and canonical item-snapshot persistence
 - Ticket number, printable receipt, completion/reset flow
 - Idle timeout warning before cart clearing
 - Responsive touch UI and reduced-motion support
 - Unit and journey tests
 
-The fixture repository is intentionally replaceable by a new API implementation in the backend phase. Checkout currently simulates order creation locally; it does not claim server-side validation or durable idempotency.
+The customer catalog UI is still fixture-backed, while the Laravel database seeder mirrors the same products and option definitions for authoritative checkout. The order API ignores client-supplied prices and names, validates product availability and modifier rules, calculates totals from backend data, and generates the receipt number. Payment-provider confirmation and durable request idempotency are not implemented yet.
 
 ## Run
 
@@ -46,9 +48,9 @@ src/
 
 ## Next delivery phases
 
-1. Select and scaffold a new backend and database.
-2. Implement terminal registration, expiring kiosk sessions, server-owned pricing, and atomic order creation with idempotency keys.
-3. Replace `FixtureCatalogRepository` through the existing repository boundary.
-4. Build the authenticated admin dashboard, catalog management, order workflow, kiosk settings, reports, and audit logs.
+1. Replace `FixtureCatalogRepository` through the existing repository boundary.
+2. Implement terminal registration, expiring kiosk sessions, and idempotency keys.
+3. Integrate payment providers and confirm payment status through trusted callbacks.
+4. Complete catalog CRUD, durable terminal monitoring, compliance-reviewed reports, and audit coverage.
 
 Do not connect this application to the legacy `Kiosk/kiosk1.sql` database. The new backend must own its schema, authentication, migrations, tests, and deployment configuration.

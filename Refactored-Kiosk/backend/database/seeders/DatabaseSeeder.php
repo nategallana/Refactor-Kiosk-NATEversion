@@ -50,6 +50,58 @@ class DatabaseSeeder extends Seeder
             );
         }
 
+        $size = [
+            'id' => 'size', 'name' => 'Size', 'required' => true, 'minSelections' => 1, 'maxSelections' => 1,
+            'values' => [
+                ['id' => 'regular', 'name' => 'Regular', 'priceDelta' => 0],
+                ['id' => 'large', 'name' => 'Large', 'priceDelta' => 4500],
+            ],
+        ];
+        $extras = [
+            'id' => 'extras', 'name' => 'Extras', 'required' => false, 'minSelections' => 0, 'maxSelections' => 3,
+            'values' => [
+                ['id' => 'cheese', 'name' => 'Extra cheese', 'priceDelta' => 2500],
+                ['id' => 'egg', 'name' => 'Sunny egg', 'priceDelta' => 3000],
+                ['id' => 'bacon', 'name' => 'Crispy bacon', 'priceDelta' => 4500],
+            ],
+        ];
+        $drink = [
+            'id' => 'drink', 'name' => 'Drink choice', 'required' => true, 'minSelections' => 1, 'maxSelections' => 1,
+            'values' => [
+                ['id' => 'iced-tea', 'name' => 'House iced tea', 'priceDelta' => 0],
+                ['id' => 'lemonade', 'name' => 'Fresh lemonade', 'priceDelta' => 1500],
+            ],
+        ];
+        $burgerChoice = [
+            'id' => 'burger-choice', 'name' => 'Burger choice', 'required' => true, 'minSelections' => 1, 'maxSelections' => 1,
+            'values' => [
+                ['id' => 'zinger', 'name' => 'Zinger burger with cheese', 'priceDelta' => 0],
+                ['id' => 'bacon-burger', 'name' => 'Bacon Burger', 'priceDelta' => 2000],
+            ],
+        ];
+        $comboSide = [
+            'id' => 'side-choice', 'name' => 'Side choice', 'required' => true, 'minSelections' => 1, 'maxSelections' => 1,
+            'values' => [
+                ['id' => 'fries', 'name' => 'Golden fries', 'priceDelta' => 0],
+                ['id' => 'spaghetti', 'name' => 'Classic spaghetti', 'priceDelta' => 2500],
+            ],
+        ];
+        $optionGroupsBySku = [
+            'CMB-001' => [$burgerChoice, $comboSide],
+            'MEAL-001' => [$size, $drink, $extras],
+            'BRG-001' => [$size, $extras],
+            'MEAL-002' => [$size, $drink],
+            'PASTA-001' => [$size, $extras],
+            'SIDE-001' => [$size],
+            'DRK-001' => [$size],
+            'DSR-001' => [$size],
+            'BRG-002' => [$size, $extras],
+            'BRG-003' => [$size, $extras],
+            'PASTA-002' => [$size],
+            'SND-001' => [$size, $extras],
+            'BRG-004' => [$size, $extras],
+        ];
+
         $products = [
             ['id' => 1, 'category_id' => 3, 'sku' => 'CMB-001', 'name' => 'Burger Menu Combo', 'description' => 'Build your burger meal in two easy steps.', 'price_minor' => 25900, 'emoji' => '🍔', 'accent' => '#fff4ed', 'active' => true, 'available' => true],
             ['id' => 2, 'category_id' => 4, 'sku' => 'MEAL-001', 'name' => 'Crispy Chicken Plate', 'description' => 'Golden chicken, garlic rice, garden slaw, and house gravy.', 'price_minor' => 24900, 'emoji' => '🍗', 'accent' => '#fff5e9', 'active' => true, 'available' => true],
@@ -69,7 +121,11 @@ class DatabaseSeeder extends Seeder
         foreach ($products as $prod) {
             DB::table('products')->updateOrInsert(
                 ['id' => $prod['id']],
-                array_merge($prod, ['created_at' => $now, 'updated_at' => $now])
+                array_merge($prod, [
+                    'option_groups_json' => json_encode($optionGroupsBySku[$prod['sku']], JSON_THROW_ON_ERROR),
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ])
             );
         }
     }
