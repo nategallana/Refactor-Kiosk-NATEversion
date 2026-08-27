@@ -20,6 +20,8 @@ class TerminalController extends Controller
             'terminal_id' => ['required', 'string', 'max:64', 'regex:/^[A-Z0-9][A-Z0-9\-]{0,63}$/i'],
             'name' => ['required', 'string', 'max:255'],
             'location' => ['nullable', 'string', 'max:255'],
+            'store_id' => ['required', 'integer', 'exists:stores,id'],
+            'wbox_kiosk_number' => ['nullable', 'string', 'max:32', 'regex:/^[A-Z0-9][A-Z0-9_-]*$/i'],
         ]);
 
         $plainToken = Str::random(64);
@@ -28,6 +30,8 @@ class TerminalController extends Controller
             DB::table('terminals')->where('id', $data['terminal_id'])->update([
                 'name' => $data['name'],
                 'location' => $data['location'] ?? null,
+                'store_id' => $data['store_id'],
+                'wbox_kiosk_number' => $data['wbox_kiosk_number'] ?? $data['terminal_id'],
                 'api_token' => hash('sha256', $plainToken),
                 'status' => 'online',
                 'updated_at' => now(),
@@ -44,6 +48,8 @@ class TerminalController extends Controller
             'id' => $data['terminal_id'],
             'name' => $data['name'],
             'location' => $data['location'] ?? null,
+            'store_id' => $data['store_id'],
+            'wbox_kiosk_number' => $data['wbox_kiosk_number'] ?? $data['terminal_id'],
             'api_token' => hash('sha256', $plainToken),
             'status' => 'online',
             'created_at' => now(),
@@ -64,7 +70,7 @@ class TerminalController extends Controller
     {
         $terminal = $request->attributes->get('_terminal') ?? (object) $request->input('_terminal');
 
-        if ($terminal === null || !isset($terminal->id)) {
+        if ($terminal === null || ! isset($terminal->id)) {
             return response()->json(['message' => 'Terminal authentication required.'], 401);
         }
 
@@ -105,7 +111,7 @@ class TerminalController extends Controller
     {
         $terminal = $request->attributes->get('_terminal') ?? (object) $request->input('_terminal');
 
-        if ($terminal === null || !isset($terminal->id)) {
+        if ($terminal === null || ! isset($terminal->id)) {
             return response()->json(['message' => 'Terminal authentication required.'], 401);
         }
 

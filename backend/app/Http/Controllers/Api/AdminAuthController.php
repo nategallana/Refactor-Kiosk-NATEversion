@@ -17,7 +17,7 @@ class AdminAuthController extends Controller
         if (! $user || ! Hash::check($credentials['password'], $user->password)) {
             return response()->json(['message' => 'The email or password is incorrect.'], 422);
         }
-        if (! in_array($user->role, ['admin', 'manager'], true)) {
+        if (! in_array($user->role, ['store_admin', 'super_admin'], true)) {
             return response()->json(['message' => 'This account cannot access the admin dashboard.'], 403);
         }
         $user->tokens()->where('name', 'admin-dashboard')->delete();

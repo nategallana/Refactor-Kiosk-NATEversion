@@ -13,7 +13,7 @@ class DatabaseSeeder extends Seeder
     {
         User::query()->updateOrCreate(
             ['email' => 'admin@kiosk.local'],
-            ['name' => 'Kiosk Administrator', 'password' => Hash::make('Admin123!'), 'role' => 'admin'],
+            ['name' => 'Kiosk Administrator', 'password' => Hash::make('Admin123!'), 'role' => 'store_admin'],
         );
 
         DB::table('system_settings')->insertOrIgnore([
@@ -133,6 +133,7 @@ class DatabaseSeeder extends Seeder
         DB::table('terminals')->updateOrInsert(
             ['id' => 'KIOSK-01'],
             [
+                'wbox_kiosk_number' => 'K01',
                 'name' => 'Main Customer Terminal',
                 'location' => 'Lobby Entrance',
                 'api_token' => hash('sha256', 'dev-kiosk-token-01'),

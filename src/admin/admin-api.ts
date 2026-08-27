@@ -9,11 +9,20 @@ const orderSchema = z.object({
   subtotal_minor: z.number(), tax_minor: z.number(), total_minor: z.number(), payment_status: z.string(),
   fulfillment_status: z.string(), placed_at: z.string(),
   items_json: z.string().nullable().optional(),
+  wbox_status: z.string().nullable().optional(),
+  wbox_attempt_count: z.number().nullable().optional(),
+  wbox_request_filename: z.string().nullable().optional(),
+  wbox_response_success: z.coerce.boolean().nullable().optional(),
+  wbox_response_message: z.string().nullable().optional(),
+  wbox_last_error: z.string().nullable().optional(),
+  wbox_sent_at: z.string().nullable().optional(),
+  wbox_acknowledged_at: z.string().nullable().optional(),
 })
 const productSchema = z.object({
   id: z.number(), category_id: z.number(), category_name: z.string(), sku: z.string(), name: z.string(),
   description: z.string().nullable(), price_minor: z.number(), emoji: z.string().nullable(), accent: z.string(),
   active: z.coerce.boolean(), available: z.coerce.boolean(),
+  wbox_item_code: z.string().nullable(),
 })
 const settingsSchema = z.object({
   id: z.number(),
@@ -27,6 +36,18 @@ const settingsSchema = z.object({
   auto_reset_seconds: z.number().int(),
   receipt_header: z.string().nullable(),
   receipt_footer: z.string().nullable(),
+  wbox_enabled: z.coerce.boolean(),
+  wbox_request_path: z.string().nullable(),
+  wbox_response_path: z.string().nullable(),
+  wbox_kiosk_number: z.string(),
+  wbox_version: z.string(),
+  wbox_pdaver: z.string(),
+  wbox_server: z.string(),
+  wbox_device: z.string(),
+  wbox_product: z.string(),
+  wbox_response_filename: z.string(),
+  wbox_retry_seconds: z.number().int(),
+  wbox_auth_token_configured: z.coerce.boolean(),
   created_at: z.string().nullable(),
   updated_at: z.string().nullable(),
 })
@@ -34,6 +55,7 @@ const settingsSchema = z.object({
 export type AdminOrder = z.infer<typeof orderSchema>
 export type AdminProduct = z.infer<typeof productSchema>
 export type AdminSettings = z.infer<typeof settingsSchema>
+export type AdminSettingsUpdate = Omit<AdminSettings, 'id' | 'created_at' | 'updated_at' | 'wbox_auth_token_configured'> & { wbox_auth_token?: string }
 
 export class RateLimitError extends Error {
   retryAfterSeconds: number
@@ -80,12 +102,21 @@ export const getDashboard = (token: string) => apiRequest('/admin/dashboard', z.
 
 export const getCatalog = (token: string) => apiRequest('/admin/catalog', z.object({ categories: z.array(z.unknown()), products: z.array(productSchema) }), token)
 export const setAvailability = (token: string, id: number, available: boolean) => apiRequest(`/admin/products/${id}/availability`, z.object({ product: z.unknown() }), token, { method: 'PATCH', body: JSON.stringify({ available }) })
+export const setWboxMapping = (token: string, id: number, wboxItemCode: string | null) => apiRequest(`/admin/products/${id}/wbox-mapping`, z.object({ product: z.unknown() }), token, { method: 'PATCH', body: JSON.stringify({ wbox_item_code: wboxItemCode }) })
 export const getOrders = (token: string) => apiRequest('/admin/orders', z.object({ orders: z.array(orderSchema) }), token)
 export const setOrderStatus = (token: string, id: number, status: string) => apiRequest(`/admin/orders/${id}/status`, z.object({ order: orderSchema }), token, { method: 'PATCH', body: JSON.stringify({ status }) })
+export const retryWboxExport = (token: string, id: number) => apiRequest(`/admin/orders/${id}/wbox/retry`, z.object({ export: z.object({ status: z.string() }).passthrough() }), token, { method: 'POST' })
 export const logout = (token: string) => apiRequest('/admin/auth/logout', z.object({ message: z.string() }), token, { method: 'POST' })
 export const getSettings = (token: string) => apiRequest('/admin/settings', z.object({ settings: settingsSchema }), token)
-export const updateSettings = (token: string, settings: Omit<AdminSettings, 'id' | 'created_at' | 'updated_at'>) =>
+export const updateSettings = (token: string, settings: AdminSettingsUpdate) =>
   apiRequest('/admin/settings', z.object({ settings: settingsSchema }), token, { method: 'PUT', body: JSON.stringify(settings) })
+export const getWboxStatus = (token: string) => apiRequest('/admin/wbox/status', z.object({
+  connection: z.object({
+    request_path: z.object({ path: z.string().nullable(), exists: z.boolean(), writable: z.boolean() }),
+    response_path: z.object({ path: z.string().nullable(), exists: z.boolean(), readable: z.boolean() }),
+    credentials_configured: z.boolean(),
+  }),
+}), token)
 
 // Terminal Management
 const authHeaders = (token: string) => ({ Authorization: `Bearer ${token}` })

@@ -1,4 +1,5 @@
 node_modules
+.vite/
 dist
 coverage
 .env
@@ -21,3 +22,4 @@ coverage
 /backend/database/*.sqlite
 /backend/database/*.sqlite-journal
 /backend/.phpunit.result.cache
+

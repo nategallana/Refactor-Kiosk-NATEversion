@@ -8,7 +8,7 @@ uses(RefreshDatabase::class);
 
 it('authenticates an administrator and returns a protected dashboard', function () {
     User::factory()->create([
-        'email' => 'admin@example.test', 'password' => Hash::make('correct-password'), 'role' => 'admin',
+        'email' => 'admin@example.test', 'password' => Hash::make('correct-password'), 'role' => 'store_admin',
     ]);
     $login = $this->postJson('/api/v1/admin/auth/login', [
         'email' => 'admin@example.test', 'password' => 'correct-password',
@@ -25,7 +25,7 @@ it('rejects invalid admin credentials', function () {
 });
 
 it('reads and updates persistent system settings with an audit record', function () {
-    $admin = User::factory()->create(['role' => 'admin']);
+    $admin = User::factory()->create(['role' => 'store_admin']);
     $this->seed();
 
     $this->actingAs($admin)->getJson('/api/v1/admin/settings')

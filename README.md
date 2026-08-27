@@ -17,6 +17,24 @@ A clean-room, touch-first customer ordering application. This workspace does not
 - Responsive touch UI and reduced-motion support
 - Unit and journey tests
 
+## Technology stack
+
+## Access model
+
+The application has three access types: `super_admin` for company-wide platform control, `store_admin` for all store owners/managers/staff, and terminal authentication for kiosk devices. Terminals use their own token and are not human user accounts.
+
+### Frontend
+
+React 19, TypeScript, Vite, React Router, Zustand, Zod, Vitest, React Testing Library, and the existing custom CSS design system. Tailwind CSS may be introduced later if the project standardizes on utility classes.
+
+### Backend
+
+PHP 8.4, Laravel 13, Laravel Sanctum, SQLite for local development, PostgreSQL for production, Laravel migrations, Laravel queues, PestPHP, and Laravel Pint.
+
+### Integrations
+
+WBOX POS file delivery is implemented for a local store bridge. Receipts currently use browser print output. A production payment provider, direct printer integration, inventory service, and cloud synchronization remain planned.
+
 The customer catalog UI is still fixture-backed, while the Laravel database seeder mirrors the same products and option definitions for authoritative checkout. The order API ignores client-supplied prices and names, validates product availability and modifier rules, calculates totals from backend data, and generates the receipt number. Payment-provider confirmation and durable request idempotency are not implemented yet.
 
 ## Run

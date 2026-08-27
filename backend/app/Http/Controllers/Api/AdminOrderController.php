@@ -14,7 +14,7 @@ class AdminOrderController extends Controller
 
     public function index(): JsonResponse
     {
-        return response()->json(['orders' => DB::table('orders')->orderByDesc('placed_at')->get()]);
+        return response()->json(['orders' => $this->orders()->orderByDesc('orders.placed_at')->get()]);
     }
 
     public function updateStatus(Request $request, int $order): JsonResponse
@@ -39,6 +39,23 @@ class AdminOrderController extends Controller
             ]);
         });
 
-        return response()->json(['order' => DB::table('orders')->where('id', $order)->first()]);
+        return response()->json(['order' => $this->orders()->where('orders.id', $order)->first()]);
+    }
+
+    private function orders()
+    {
+        return DB::table('orders')
+            ->leftJoin('wbox_exports', 'wbox_exports.order_id', '=', 'orders.id')
+            ->select(
+                'orders.*',
+                'wbox_exports.status as wbox_status',
+                'wbox_exports.attempt_count as wbox_attempt_count',
+                'wbox_exports.request_filename as wbox_request_filename',
+                'wbox_exports.response_success as wbox_response_success',
+                'wbox_exports.response_message as wbox_response_message',
+                'wbox_exports.last_error as wbox_last_error',
+                'wbox_exports.sent_at as wbox_sent_at',
+                'wbox_exports.acknowledged_at as wbox_acknowledged_at',
+            );
     }
 }

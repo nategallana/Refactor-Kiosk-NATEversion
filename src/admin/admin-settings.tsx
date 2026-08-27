@@ -1,12 +1,12 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { getSettings, updateSettings, type AdminSettings } from './admin-api'
+import { getSettings, getWboxStatus, updateSettings, type AdminSettings, type AdminSettingsUpdate } from './admin-api'
 import { AdminShell } from './admin-shell'
 import { useAdminStore } from './admin-store'
 
-type EditableSettings = Omit<AdminSettings, 'id' | 'created_at' | 'updated_at'>
-const editable = ({ id: _id, created_at: _createdAt, updated_at: _updatedAt, ...values }: AdminSettings) => {
+type EditableSettings = AdminSettingsUpdate & { wbox_auth_token_configured: boolean; wbox_auth_token: string }
+const editable = ({ id: _id, created_at: _createdAt, updated_at: _updatedAt, ...values }: AdminSettings): EditableSettings => {
   void _id; void _createdAt; void _updatedAt
-  return values
+  return { ...values, wbox_auth_token: '' }
 }
 
 export function SettingsPage() {
@@ -15,6 +15,8 @@ export function SettingsPage() {
   const [error, setError] = useState('')
   const [saved, setSaved] = useState('')
   const [saving, setSaving] = useState(false)
+  const [checkingWbox, setCheckingWbox] = useState(false)
+  const [wboxStatus, setWboxStatus] = useState('')
 
   useEffect(() => {
     getSettings(token).then(({ settings: loaded }) => setSettings(editable(loaded))).catch((reason: Error) => setError(reason.message))
@@ -25,13 +27,31 @@ export function SettingsPage() {
     if (!settings) return
     setSaving(true); setError(''); setSaved('')
     try {
-      const result = await updateSettings(token, settings)
+      const { wbox_auth_token_configured: _configured, ...payload } = settings
+      void _configured
+      const result = await updateSettings(token, payload)
       setSettings(editable(result.settings))
       setSaved('Settings saved successfully.')
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Unable to save settings.')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const checkWbox = async () => {
+    setCheckingWbox(true); setWboxStatus('')
+    try {
+      const { connection } = await getWboxStatus(token)
+      const requestReady = connection.request_path.exists && connection.request_path.writable
+      const responseReady = connection.response_path.exists && connection.response_path.readable
+      setWboxStatus(requestReady && responseReady && connection.credentials_configured
+        ? 'WBOX folders and credentials are ready.'
+        : 'WBOX is not ready. Save valid folders and credentials, then test again.')
+    } catch (reason) {
+      setWboxStatus(reason instanceof Error ? reason.message : 'Unable to test WBOX settings.')
+    } finally {
+      setCheckingWbox(false)
     }
   }
 
@@ -74,6 +94,43 @@ export function SettingsPage() {
         <div className="settings-fields settings-fields--receipt">
           <label className="settings-field settings-field--wide">Receipt header<input value={settings.receipt_header ?? ''} maxLength={120} onChange={(event) => setSettings({ ...settings, receipt_header: event.target.value || null })} /></label>
           <label className="settings-field settings-field--wide">Receipt footer<textarea value={settings.receipt_footer ?? ''} maxLength={240} rows={3} onChange={(event) => setSettings({ ...settings, receipt_footer: event.target.value || null })} /></label>
+        </div>
+      </section>
+      <section className='settings-section'>
+        <div className='settings-section__intro'>
+          <span>05</span>
+          <div><h3>WBOX POS connection</h3><p>Deliver kiosk orders through the local WBOX folders.</p></div>
+        </div>
+        <div className='settings-toggles'>
+          <label>
+            <span><strong>Enable WBOX delivery</strong><small>Queue new orders for the local bridge.</small></span>
+            <input
+              type='checkbox'
+              checked={settings.wbox_enabled}
+              onChange={(event) => setSettings({ ...settings, wbox_enabled: event.target.checked })}
+            />
+          </label>
+        </div>
+        <div className='settings-fields' style={{ marginTop: '1rem' }}>
+          <label className='settings-field settings-field--wide'>
+            Request folder
+            <input value={settings.wbox_request_path ?? ''} onChange={(event) => setSettings({ ...settings, wbox_request_path: event.target.value || null })} />
+          </label>
+          <label className='settings-field settings-field--wide'>
+            Response folder
+            <input value={settings.wbox_response_path ?? ''} onChange={(event) => setSettings({ ...settings, wbox_response_path: event.target.value || null })} />
+          </label>
+          <label className='settings-field'>Kiosk number<input value={settings.wbox_kiosk_number} maxLength={32} onChange={(event) => setSettings({ ...settings, wbox_kiosk_number: event.target.value })} /></label>
+          <label className='settings-field'>WBOX product<input value={settings.wbox_product} maxLength={32} onChange={(event) => setSettings({ ...settings, wbox_product: event.target.value })} /></label>
+          <label className='settings-field settings-field--wide'>
+            Authentication token
+            <input type='password' value={settings.wbox_auth_token} placeholder={settings.wbox_auth_token_configured ? 'Configured - leave blank to keep it' : 'Enter WBOX token'} onChange={(event) => setSettings({ ...settings, wbox_auth_token: event.target.value })} />
+          </label>
+          <label className='settings-field'>Retry delay (seconds)<input type='number' min='5' max='3600' value={settings.wbox_retry_seconds} onChange={(event) => setSettings({ ...settings, wbox_retry_seconds: Number(event.target.value) })} /></label>
+        </div>
+        <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center', marginTop: '1rem' }}>
+          <button type='button' className='secondary-button' onClick={checkWbox} disabled={checkingWbox}>{checkingWbox ? 'Checking...' : 'Test saved connection'}</button>
+          {wboxStatus && <small role='status'>{wboxStatus}</small>}
         </div>
       </section>
     </form>}

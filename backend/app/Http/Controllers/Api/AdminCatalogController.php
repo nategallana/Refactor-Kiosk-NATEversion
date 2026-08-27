@@ -21,6 +21,7 @@ class AdminCatalogController extends Controller
             ->map(function (object $product): object {
                 $product->option_groups = json_decode($product->option_groups_json ?? '[]', false, 512, JSON_THROW_ON_ERROR);
                 unset($product->option_groups_json);
+
                 return $product;
             });
 
@@ -38,6 +39,30 @@ class AdminCatalogController extends Controller
             'before' => json_encode(['available' => (bool) $before->available]),
             'after' => json_encode(['available' => $data['available']]), 'created_at' => now(),
         ]);
+
+        return response()->json(['product' => DB::table('products')->where('id', $product)->first()]);
+    }
+
+    public function wboxMapping(Request $request, int $product): JsonResponse
+    {
+        $data = $request->validate([
+            'wbox_item_code' => ['nullable', 'string', 'max:64', 'regex:/^[A-Za-z0-9._-]+$/'],
+        ]);
+        $before = DB::table('products')->where('id', $product)->firstOrFail();
+        $code = filled($data['wbox_item_code'] ?? null) ? trim($data['wbox_item_code']) : null;
+
+        DB::transaction(function () use ($request, $product, $before, $code): void {
+            DB::table('products')->where('id', $product)->update(['wbox_item_code' => $code, 'updated_at' => now()]);
+            DB::table('audit_logs')->insert([
+                'actor_id' => $request->user()->id,
+                'action' => 'product.wbox_mapping_changed',
+                'entity_type' => 'product',
+                'entity_id' => (string) $product,
+                'before' => json_encode(['wbox_item_code' => $before->wbox_item_code]),
+                'after' => json_encode(['wbox_item_code' => $code]),
+                'created_at' => now(),
+            ]);
+        });
 
         return response()->json(['product' => DB::table('products')->where('id', $product)->first()]);
     }

@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Services\CardPaymentProvider;
+use App\Services\CounterPaymentProvider;
 use Illuminate\Database\UniqueConstraintViolationException;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Exceptions\HttpResponseException;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -91,6 +93,7 @@ class OrderController extends Controller
                     'order_id' => $orderId,
                     'product_id' => $item['productId'],
                     'sku' => $item['sku'],
+                    'wbox_item_code' => $item['wboxItemCode'],
                     'name' => $item['name'],
                     'quantity' => $item['quantity'],
                     'unit_price_minor' => $item['unitPrice'],
@@ -103,12 +106,23 @@ class OrderController extends Controller
 
                 // Create payment record
                 $paymentService = $data['payment_method'] === 'counter'
-                    ? new \App\Services\CounterPaymentProvider()
-                    : new \App\Services\CardPaymentProvider();
+                    ? new CounterPaymentProvider
+                    : new CardPaymentProvider;
                 $paymentResult = $paymentService->createPayment(
                     DB::table('orders')->where('id', $orderId)->first(),
                     $data['payment_method']
                 );
+
+                if ((bool) $settings->wbox_enabled) {
+                    DB::table('wbox_exports')->insert([
+                        'order_id' => $orderId,
+                        'status' => 'pending',
+                        'attempt_count' => 0,
+                        'available_at' => $now,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ]);
+                }
 
                 return [DB::table('orders')->where('id', $orderId)->first(), $canonicalItems, false, $paymentResult];
             });
@@ -233,6 +247,7 @@ class OrderController extends Controller
             $canonicalItems[] = [
                 'productId' => (int) $product->id,
                 'sku' => $product->sku,
+                'wboxItemCode' => $product->wbox_item_code,
                 'name' => $product->name,
                 'quantity' => $quantity,
                 'unitPrice' => $unitPriceMinor,
