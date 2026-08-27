@@ -7,9 +7,10 @@ import { useAdminStore } from './admin-store'
 export function AdminLogin() {
   const navigate = useNavigate()
   const [params] = useSearchParams()
+  const user = useAdminStore((state) => state.user)
   const token = useAdminStore((state) => state.token)
   const signIn = useAdminStore((state) => state.signIn)
-  const [email, setEmail] = useState('admin@kiosk.local')
+  const [email, setEmail] = useState('superadmin@kiosk.local')
   const [password, setPassword] = useState('Admin123!')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState(() => params.get('expired') ? 'Your session expired. Please sign in again.' : '')
@@ -22,7 +23,7 @@ export function AdminLogin() {
     return () => window.clearInterval(timer)
   }, [cooldown])
 
-  if (token) return <Navigate to="/admin" replace />
+  if (token) return <Navigate to={user?.role === 'super_admin' ? '/platform' : '/admin'} replace />
 
   const submit = async (event: FormEvent) => {
     event.preventDefault()
@@ -32,7 +33,8 @@ export function AdminLogin() {
     try {
       const result = await login(email, password)
       signIn(result.token, result.user)
-      navigate('/admin', { replace: true })
+      const targetPath = result.user.role === 'super_admin' ? '/platform' : '/admin'
+      navigate(targetPath, { replace: true })
     } catch (reason) {
       if (reason instanceof RateLimitError) setCooldown(reason.retryAfterSeconds)
       setError(reason instanceof Error ? reason.message : 'Unable to sign in.')

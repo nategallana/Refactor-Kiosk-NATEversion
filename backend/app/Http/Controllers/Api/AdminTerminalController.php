@@ -10,9 +10,11 @@ use Illuminate\Support\Str;
 
 class AdminTerminalController extends Controller
 {
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
+        $storeId = (int) $request->attributes->get('store_id');
         $terminals = DB::table('terminals')
+            ->where('store_id', $storeId)
             ->where('status', '!=', 'decommissioned')
             ->orderBy('id')
             ->get()
@@ -28,12 +30,12 @@ class AdminTerminalController extends Controller
 
     public function store(Request $request): JsonResponse
     {
+        $storeId = (int) $request->attributes->get('store_id');
         $data = $request->validate([
             'terminal_id' => ['required', 'string', 'max:64', 'regex:/^[A-Z0-9][A-Z0-9\-]{0,63}$/i'],
             'name' => ['required', 'string', 'max:255'],
             'location' => ['nullable', 'string', 'max:255'],
             'service_mode' => ['nullable', 'string', 'in:both,dine-in,takeout'],
-            'store_id' => ['required', 'integer', 'exists:stores,id'],
             'wbox_kiosk_number' => ['nullable', 'string', 'max:32', 'regex:/^[A-Z0-9][A-Z0-9_-]*$/i'],
         ]);
 
@@ -48,7 +50,7 @@ class AdminTerminalController extends Controller
             'name' => $data['name'],
             'location' => $data['location'] ?? null,
             'service_mode' => $data['service_mode'] ?? null,
-            'store_id' => $data['store_id'],
+            'store_id' => $storeId,
             'wbox_kiosk_number' => $data['wbox_kiosk_number'] ?? $data['terminal_id'],
             'api_token' => hash('sha256', $plainToken),
             'status' => 'online',
@@ -75,7 +77,8 @@ class AdminTerminalController extends Controller
 
     public function update(Request $request, string $terminalId): JsonResponse
     {
-        $terminal = DB::table('terminals')->where('id', $terminalId)->first();
+        $storeId = (int) $request->attributes->get('store_id');
+        $terminal = DB::table('terminals')->where('id', $terminalId)->where('store_id', $storeId)->first();
         if ($terminal === null) {
             return response()->json(['message' => 'Terminal not found.'], 404);
         }
@@ -90,7 +93,7 @@ class AdminTerminalController extends Controller
 
         $before = (array) $terminal;
 
-        DB::table('terminals')->where('id', $terminalId)->update(array_merge($data, ['updated_at' => now()]));
+        DB::table('terminals')->where('id', $terminalId)->where('store_id', $storeId)->update(array_merge($data, ['updated_at' => now()]));
 
         DB::table('audit_logs')->insert([
             'actor_id' => $request->user()->id,
@@ -102,17 +105,18 @@ class AdminTerminalController extends Controller
             'created_at' => now(),
         ]);
 
-        return response()->json(['terminal' => DB::table('terminals')->where('id', $terminalId)->first()]);
+        return response()->json(['terminal' => DB::table('terminals')->where('id', $terminalId)->where('store_id', $storeId)->first()]);
     }
 
     public function destroy(Request $request, string $terminalId): JsonResponse
     {
-        $terminal = DB::table('terminals')->where('id', $terminalId)->first();
+        $storeId = (int) $request->attributes->get('store_id');
+        $terminal = DB::table('terminals')->where('id', $terminalId)->where('store_id', $storeId)->first();
         if ($terminal === null) {
             return response()->json(['message' => 'Terminal not found.'], 404);
         }
 
-        DB::table('terminals')->where('id', $terminalId)->update([
+        DB::table('terminals')->where('id', $terminalId)->where('store_id', $storeId)->update([
             'status' => 'decommissioned',
             'updated_at' => now(),
         ]);
@@ -132,7 +136,8 @@ class AdminTerminalController extends Controller
 
     public function command(Request $request, string $terminalId): JsonResponse
     {
-        $terminal = DB::table('terminals')->where('id', $terminalId)->first();
+        $storeId = (int) $request->attributes->get('store_id');
+        $terminal = DB::table('terminals')->where('id', $terminalId)->where('store_id', $storeId)->first();
         if ($terminal === null) {
             return response()->json(['message' => 'Terminal not found.'], 404);
         }
@@ -142,9 +147,9 @@ class AdminTerminalController extends Controller
         ]);
 
         if ($data['command'] === 'lock') {
-            DB::table('terminals')->where('id', $terminalId)->update(['status' => 'maintenance', 'updated_at' => now()]);
+            DB::table('terminals')->where('id', $terminalId)->where('store_id', $storeId)->update(['status' => 'maintenance', 'updated_at' => now()]);
         } elseif ($data['command'] === 'unlock') {
-            DB::table('terminals')->where('id', $terminalId)->update(['status' => 'online', 'updated_at' => now()]);
+            DB::table('terminals')->where('id', $terminalId)->where('store_id', $storeId)->update(['status' => 'online', 'updated_at' => now()]);
         }
         // 'reload' is a no-op on the backend; the kiosk picks it up via heartbeat
 

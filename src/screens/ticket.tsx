@@ -50,6 +50,14 @@ export function TicketScreen() {
         <button className="primary-button primary-button--wide" onClick={finish}>
           Finish ({secondsLeft}s)
         </button>
+        <button
+          type="button"
+          className="secondary-button"
+          style={{ marginTop: '0.6rem', width: '100%', minHeight: '44px' }}
+          onClick={() => window.print()}
+        >
+          Print Receipt 🖨️
+        </button>
       </section>
 
       <article className="receipt">

@@ -25,11 +25,11 @@ Route::prefix('v1')->group(function (): void {
     });
 
     Route::get('/settings', [AdminSettingsController::class, 'publicShow']);
-    Route::get('/catalog', [AdminCatalogController::class, 'index']);
+    Route::get('/catalog', [AdminCatalogController::class, 'index'])->middleware(AuthenticateTerminal::class);
     Route::post('/orders', [OrderController::class, 'store']);
     Route::post('/payments/webhook/{provider}', [PaymentWebhookController::class, 'handle']);
     Route::post('/admin/auth/login', [AdminAuthController::class, 'login'])->middleware('throttle:10,1');
-    Route::middleware(['auth:sanctum', 'store.context'])->prefix('admin')->group(function (): void {
+    Route::middleware(['auth:sanctum', 'session.security', 'store.context'])->prefix('admin')->group(function (): void {
         Route::get('/auth/me', [AdminAuthController::class, 'me']);
         Route::post('/auth/logout', [AdminAuthController::class, 'logout']);
         Route::get('/dashboard', AdminDashboardController::class);
@@ -43,6 +43,12 @@ Route::prefix('v1')->group(function (): void {
         Route::put('/settings', [AdminSettingsController::class, 'update']);
         Route::get('/wbox/status', [AdminWboxController::class, 'status']);
 
+        // Session & Security Management
+        Route::get('/sessions', [AdminAuthController::class, 'sessions']);
+        Route::delete('/sessions/{sessionId}', [AdminAuthController::class, 'revokeSession']);
+        Route::delete('/sessions', [AdminAuthController::class, 'revokeAllSessions']);
+        Route::post('/password/change', [AdminAuthController::class, 'changePassword']);
+
         // Admin terminal management
         Route::get('/terminals', [AdminTerminalController::class, 'index']);
         Route::post('/terminals', [AdminTerminalController::class, 'store']);
@@ -51,12 +57,15 @@ Route::prefix('v1')->group(function (): void {
         Route::post('/terminals/{terminalId}/command', [AdminTerminalController::class, 'command']);
     });
 
-    Route::middleware(['auth:sanctum', 'super_admin'])->prefix('platform')->group(function (): void {
+    Route::middleware(['auth:sanctum', 'session.security', 'super_admin'])->prefix('platform')->group(function (): void {
         Route::get('/stores', [PlatformController::class, 'stores']);
         Route::post('/stores', [PlatformController::class, 'createStore']);
         Route::patch('/stores/{storeId}', [PlatformController::class, 'updateStore']);
         Route::get('/users', [PlatformController::class, 'users']);
         Route::patch('/users/{userId}', [PlatformController::class, 'updateUser']);
+        Route::get('/users/{userId}/sessions', [PlatformController::class, 'userSessions']);
+        Route::delete('/users/{userId}/sessions/{tokenId}', [PlatformController::class, 'revokeUserSession']);
+        Route::delete('/users/{userId}/sessions', [PlatformController::class, 'revokeAllUserSessions']);
         Route::get('/terminals', [PlatformController::class, 'terminals']);
         Route::get('/reports/sales', [PlatformController::class, 'report']);
         Route::get('/audit-logs', [PlatformController::class, 'auditLogs']);

@@ -11,36 +11,60 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        User::query()->updateOrCreate(
-            ['email' => 'admin@kiosk.local'],
-            ['name' => 'Kiosk Administrator', 'password' => Hash::make('Admin123!'), 'role' => 'store_admin'],
+        // Seed default store
+        DB::table('stores')->updateOrInsert(
+            ['id' => 1],
+            ['name' => 'Main Store', 'code' => 'MAIN', 'timezone' => 'Asia/Manila', 'active' => true, 'created_at' => now(), 'updated_at' => now()]
         );
 
-        DB::table('system_settings')->insertOrIgnore([
-            'id' => 1,
-            'brand_name' => 'KIOSK',
-            'tax_rate_basis_points' => 1200,
-            'service_mode' => 'both',
-            'currency' => 'PHP',
-            'counter_payment_enabled' => true,
-            'card_payment_enabled' => true,
-            'idle_timeout_seconds' => 120,
-            'auto_reset_seconds' => 15,
-            'receipt_header' => 'Thank you for dining with us.',
-            'receipt_footer' => 'Please keep this receipt for your order.',
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        $superAdmin = User::query()->updateOrCreate(
+            ['email' => 'superadmin@kiosk.local'],
+            ['name' => 'Super Administrator', 'password' => Hash::make('Admin123!'), 'role' => 'super_admin'],
+        );
+
+        $admin = User::query()->updateOrCreate(
+            ['email' => 'admin@kiosk.local'],
+            ['name' => 'Store Manager', 'password' => Hash::make('Admin123!'), 'role' => 'store_admin'],
+        );
+
+        DB::table('store_user')->updateOrInsert(
+            ['store_id' => 1, 'user_id' => $superAdmin->id],
+            ['role' => 'super_admin', 'created_at' => now(), 'updated_at' => now()]
+        );
+
+        DB::table('store_user')->updateOrInsert(
+            ['store_id' => 1, 'user_id' => $admin->id],
+            ['role' => 'store_admin', 'created_at' => now(), 'updated_at' => now()]
+        );
+
+        DB::table('system_settings')->updateOrInsert(
+            ['id' => 1],
+            [
+                'store_id' => 1,
+                'brand_name' => 'KIOSK',
+                'tax_rate_basis_points' => 1200,
+                'service_mode' => 'both',
+                'currency' => 'PHP',
+                'counter_payment_enabled' => true,
+                'card_payment_enabled' => true,
+                'idle_timeout_seconds' => 120,
+                'auto_reset_seconds' => 15,
+                'receipt_header' => 'Thank you for dining with us.',
+                'receipt_footer' => 'Please keep this receipt for your order.',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]
+        );
 
         $now = now();
         $categories = [
-            ['id' => 1, 'name' => 'Main', 'display_order' => 1, 'active' => true],
-            ['id' => 2, 'name' => 'Burgers', 'display_order' => 2, 'active' => true],
-            ['id' => 3, 'name' => 'Combo Meals', 'display_order' => 3, 'active' => true],
-            ['id' => 4, 'name' => 'Meals', 'display_order' => 4, 'active' => true],
-            ['id' => 5, 'name' => 'Sides', 'display_order' => 5, 'active' => true],
-            ['id' => 6, 'name' => 'Drinks', 'display_order' => 6, 'active' => true],
-            ['id' => 7, 'name' => 'Desserts', 'display_order' => 7, 'active' => true],
+            ['id' => 1, 'store_id' => 1, 'name' => 'Main', 'display_order' => 1, 'active' => true],
+            ['id' => 2, 'store_id' => 1, 'name' => 'Burgers', 'display_order' => 2, 'active' => true],
+            ['id' => 3, 'store_id' => 1, 'name' => 'Combo Meals', 'display_order' => 3, 'active' => true],
+            ['id' => 4, 'store_id' => 1, 'name' => 'Meals', 'display_order' => 4, 'active' => true],
+            ['id' => 5, 'store_id' => 1, 'name' => 'Sides', 'display_order' => 5, 'active' => true],
+            ['id' => 6, 'store_id' => 1, 'name' => 'Drinks', 'display_order' => 6, 'active' => true],
+            ['id' => 7, 'store_id' => 1, 'name' => 'Desserts', 'display_order' => 7, 'active' => true],
         ];
 
         foreach ($categories as $cat) {
@@ -122,6 +146,7 @@ class DatabaseSeeder extends Seeder
             DB::table('products')->updateOrInsert(
                 ['id' => $prod['id']],
                 array_merge($prod, [
+                    'store_id' => 1,
                     'option_groups_json' => json_encode($optionGroupsBySku[$prod['sku']], JSON_THROW_ON_ERROR),
                     'created_at' => $now,
                     'updated_at' => $now,
@@ -133,6 +158,7 @@ class DatabaseSeeder extends Seeder
         DB::table('terminals')->updateOrInsert(
             ['id' => 'KIOSK-01'],
             [
+                'store_id' => 1,
                 'wbox_kiosk_number' => 'K01',
                 'name' => 'Main Customer Terminal',
                 'location' => 'Lobby Entrance',

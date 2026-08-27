@@ -7,7 +7,24 @@ import { ReportsPage } from './admin-reports'
 import { SettingsPage } from './admin-settings'
 import './admin.css'
 
+import { PlatformGuard, PlatformLayout } from '../platform/platform-layout'
+import {
+  OverviewPage,
+  StoresPage,
+  UsersPage,
+  TerminalsPage,
+  WboxPage,
+  ReportsPage as PlatformReportsPage,
+  AuditLogPage,
+  SecurityPage,
+} from '../platform/platform-pages'
+
 const protect = (element: React.ReactNode) => <AdminGuard>{element}</AdminGuard>
+const platformProtect = (element: React.ReactNode) => (
+  <PlatformGuard>
+    <PlatformLayout>{element}</PlatformLayout>
+  </PlatformGuard>
+)
 
 function AdminSessionListener() {
   const navigate = useNavigate()
@@ -28,6 +45,18 @@ export function AdminApp() {
     <Route path="/admin/kiosks" element={protect(<KiosksPage />)} />
     <Route path="/admin/reports" element={protect(<ReportsPage />)} />
     <Route path="/admin/settings" element={protect(<SettingsPage />)} />
+
+    {/* Super Admin Platform Routes */}
+    <Route path="/platform" element={platformProtect(<OverviewPage />)} />
+    <Route path="/platform/stores" element={platformProtect(<StoresPage />)} />
+    <Route path="/platform/stores/:id" element={platformProtect(<StoresPage />)} />
+    <Route path="/platform/users" element={platformProtect(<UsersPage />)} />
+    <Route path="/platform/terminals" element={platformProtect(<TerminalsPage />)} />
+    <Route path="/platform/wbox" element={platformProtect(<WboxPage />)} />
+    <Route path="/platform/reports" element={platformProtect(<PlatformReportsPage />)} />
+    <Route path="/platform/audit" element={platformProtect(<AuditLogPage />)} />
+    <Route path="/platform/security" element={platformProtect(<SecurityPage />)} />
+
     <Route path="*" element={<Navigate to="/admin" replace />} />
   </Routes></BrowserRouter>
 }

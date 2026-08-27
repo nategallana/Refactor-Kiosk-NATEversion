@@ -1,6 +1,14 @@
 import { catalogSchema, type CatalogRepository, type Product } from '../domain/catalog'
 
 const apiBase = (import.meta as unknown as Record<string, Record<string, string>>).env?.VITE_API_BASE ?? '/api/v1'
+const terminalToken = () => {
+  try {
+    const state = JSON.parse(localStorage.getItem('kiosk-terminal') ?? '{}')
+    return state?.state?.apiToken as string | undefined
+  } catch {
+    return undefined
+  }
+}
 
 interface RawCategory {
   id: number
@@ -72,7 +80,11 @@ export class ApiCatalogRepository implements CatalogRepository {
   private cache: ReturnType<typeof mapCatalog> | null = null
 
   async getCatalog(signal?: AbortSignal) {
-    const response = await fetch(`${apiBase}/catalog`, { signal, headers: { Accept: 'application/json' } })
+    const token = terminalToken()
+    const response = await fetch(`${apiBase}/catalog`, {
+      signal,
+      headers: { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    })
     if (!response.ok) throw new Error(`Catalog fetch failed: ${response.status}`)
     const raw = await response.json()
     this.cache = mapCatalog(raw)

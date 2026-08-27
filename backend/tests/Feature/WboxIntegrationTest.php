@@ -144,3 +144,60 @@ it('keeps WBOX credentials and local paths out of the public settings response',
         ->assertJsonMissingPath('settings.wbox_response_path')
         ->assertJsonMissingPath('settings.wbox_auth_token_encrypted');
 });
+
+it('routes exports independently for two terminals in the same store', function () {
+    DB::table('terminals')->insertOrIgnore([
+        'id' => 'KIOSK-02',
+        'name' => 'Kiosk Terminal 2',
+        'store_id' => 1,
+        'wbox_kiosk_number' => 'K02',
+        'api_token' => hash('sha256', 'token-2'),
+        'status' => 'online',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    $payload1 = wboxOrderPayload();
+    $payload1['terminal_id'] = 'KIOSK-01';
+    $order1 = $this->postJson('/api/v1/orders', $payload1, ['Idempotency-Key' => (string) Str::uuid()])
+        ->assertCreated()->json('order');
+
+    $payload2 = wboxOrderPayload();
+    $payload2['terminal_id'] = 'KIOSK-02';
+    $order2 = $this->postJson('/api/v1/orders', $payload2, ['Idempotency-Key' => (string) Str::uuid()])
+        ->assertCreated()->json('order');
+
+    // First run exports order 1 (K01)
+    $this->artisan('wbox:bridge', ['--once' => true])->assertSuccessful();
+    $this->assertDatabaseHas('wbox_exports', ['order_id' => $order1['id'], 'status' => 'sent', 'request_filename' => 'K01Ticket#'.$order1['id'].'.request']);
+
+    // Acknowledge order 1 so bridge can process next order
+    $document = new DOMDocument('1.0', 'UTF-8');
+    $root = $document->createElement('SendOrderResponse');
+    $result = $document->createElement('SendOrderResult');
+    $result->setAttribute('success', 'true');
+    $result->setAttribute('message', 'Order 1 accepted');
+    $root->appendChild($result);
+    $document->appendChild($root);
+    File::put($this->wboxResponsePath.DIRECTORY_SEPARATOR.'SendOrder.response', $document->saveXML());
+
+    // Second run acknowledges order 1 and exports order 2 (K02)
+    $this->artisan('wbox:bridge', ['--once' => true])->assertSuccessful();
+    $this->assertDatabaseHas('wbox_exports', ['order_id' => $order2['id'], 'status' => 'sent', 'request_filename' => 'K02Ticket#'.$order2['id'].'.request']);
+});
+
+it('recovers stale processing records and retries failed exports', function () {
+    $order = $this->postJson('/api/v1/orders', wboxOrderPayload(), ['Idempotency-Key' => (string) Str::uuid()])
+        ->assertCreated()->json('order');
+
+    // Manually mark export as stuck in processing for > 60s
+    DB::table('wbox_exports')->where('order_id', $order['id'])->update([
+        'status' => 'processing',
+        'updated_at' => now()->subMinutes(5),
+    ]);
+
+    // Bridge run should recover it back to pending and export it
+    $this->artisan('wbox:bridge', ['--once' => true])->assertSuccessful();
+    $this->assertDatabaseHas('wbox_exports', ['order_id' => $order['id'], 'status' => 'sent']);
+});
+

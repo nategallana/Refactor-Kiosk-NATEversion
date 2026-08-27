@@ -12,16 +12,19 @@ class AdminOrderController extends Controller
 {
     private const STATUSES = ['pending', 'confirmed', 'preparing', 'ready', 'completed', 'cancelled'];
 
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        return response()->json(['orders' => $this->orders()->orderByDesc('orders.placed_at')->get()]);
+        $storeId = (int) $request->attributes->get('store_id');
+
+        return response()->json(['orders' => $this->orders($storeId)->orderByDesc('orders.placed_at')->get()]);
     }
 
     public function updateStatus(Request $request, int $order): JsonResponse
     {
+        $storeId = (int) $request->attributes->get('store_id');
         $data = $request->validate(['status' => ['required', Rule::in(self::STATUSES)]]);
-        $before = DB::table('orders')->where('id', $order)->firstOrFail();
-        DB::transaction(function () use ($request, $order, $before, $data): void {
+        $before = DB::table('orders')->where('id', $order)->where('store_id', $storeId)->firstOrFail();
+        DB::transaction(function () use ($request, $order, $storeId, $before, $data): void {
             $updates = [
                 'fulfillment_status' => $data['status'],
                 'updated_at' => now(),
@@ -29,7 +32,7 @@ class AdminOrderController extends Controller
             if (in_array($data['status'], ['confirmed', 'preparing', 'ready', 'completed']) && $before->payment_status === 'pending') {
                 $updates['payment_status'] = 'paid';
             }
-            DB::table('orders')->where('id', $order)->update($updates);
+            DB::table('orders')->where('id', $order)->where('store_id', $storeId)->update($updates);
             DB::table('audit_logs')->insert([
                 'actor_id' => $request->user()->id, 'action' => 'order.status_changed',
                 'entity_type' => 'order', 'entity_id' => (string) $order,
@@ -39,12 +42,13 @@ class AdminOrderController extends Controller
             ]);
         });
 
-        return response()->json(['order' => $this->orders()->where('orders.id', $order)->first()]);
+        return response()->json(['order' => $this->orders($storeId)->where('orders.id', $order)->first()]);
     }
 
-    private function orders()
+    private function orders(int $storeId)
     {
         return DB::table('orders')
+            ->where('orders.store_id', $storeId)
             ->leftJoin('wbox_exports', 'wbox_exports.order_id', '=', 'orders.id')
             ->select(
                 'orders.*',

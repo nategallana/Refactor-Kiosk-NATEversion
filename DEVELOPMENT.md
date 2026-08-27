@@ -16,21 +16,21 @@
 
 ## Start the applications
 
-Open two PowerShell terminals.
+Open two PowerShell terminals in the repository root (`C:\Users\Kiosk\.KIOSK SETUP`).
 
 Frontend:
 
 ```powershell
-cd "C:\Users\Kiosk\.KIOSK SETUP\Refactored-Kiosk"
 .\scripts\start-frontend.ps1
 ```
+*(Or directly: `npm install` followed by `npm run dev`)*
 
 Backend:
 
 ```powershell
-cd "C:\Users\Kiosk\.KIOSK SETUP\Refactored-Kiosk"
 .\scripts\start-backend.ps1
 ```
+*(Or directly: `cd backend`, `composer install`, `php artisan migrate --seed`, `php artisan serve --host=127.0.0.1 --port=8000`)*
 
 Local URLs:
 
@@ -54,7 +54,6 @@ WBOX integration uses the same local file contract as the legacy kiosk. Laravel 
 4. Open a third PowerShell terminal and run:
 
 ```powershell
-Set-Location -LiteralPath 'C:\Users\Kiosk\.KIOSK SETUP\Refactored-Kiosk'
 .\scripts\start-wbox-bridge.ps1
 ```
 
