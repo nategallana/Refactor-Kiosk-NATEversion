@@ -58,14 +58,10 @@ class AdminTerminalController extends Controller
             'updated_at' => now(),
         ]);
 
-        DB::table('audit_logs')->insert([
-            'actor_id' => $request->user()->id,
-            'action' => 'terminal.created',
-            'entity_type' => 'terminal',
-            'entity_id' => $data['terminal_id'],
-            'before' => null,
-            'after' => json_encode(['name' => $data['name'], 'location' => $data['location'] ?? null]),
-            'created_at' => now(),
+        \App\Services\SecurityAuditService::log('terminal.registered', 'terminal', $data['terminal_id'], $request->user()->id, null, [
+            'name' => $data['name'],
+            'location' => $data['location'] ?? null,
+            'store_id' => $storeId,
         ]);
 
         return response()->json([
@@ -95,15 +91,7 @@ class AdminTerminalController extends Controller
 
         DB::table('terminals')->where('id', $terminalId)->where('store_id', $storeId)->update(array_merge($data, ['updated_at' => now()]));
 
-        DB::table('audit_logs')->insert([
-            'actor_id' => $request->user()->id,
-            'action' => 'terminal.updated',
-            'entity_type' => 'terminal',
-            'entity_id' => $terminalId,
-            'before' => json_encode(array_intersect_key($before, $data)),
-            'after' => json_encode($data),
-            'created_at' => now(),
-        ]);
+        \App\Services\SecurityAuditService::log('terminal.updated', 'terminal', $terminalId, $request->user()->id, array_intersect_key($before, $data), $data);
 
         return response()->json(['terminal' => DB::table('terminals')->where('id', $terminalId)->where('store_id', $storeId)->first()]);
     }
@@ -121,15 +109,7 @@ class AdminTerminalController extends Controller
             'updated_at' => now(),
         ]);
 
-        DB::table('audit_logs')->insert([
-            'actor_id' => $request->user()->id,
-            'action' => 'terminal.decommissioned',
-            'entity_type' => 'terminal',
-            'entity_id' => $terminalId,
-            'before' => json_encode(['status' => $terminal->status]),
-            'after' => json_encode(['status' => 'decommissioned']),
-            'created_at' => now(),
-        ]);
+        \App\Services\SecurityAuditService::log('terminal.revoked', 'terminal', $terminalId, $request->user()->id, ['status' => $terminal->status], ['status' => 'decommissioned']);
 
         return response()->json(['message' => 'Terminal decommissioned.']);
     }
