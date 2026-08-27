@@ -1,5 +1,4 @@
-﻿import React, { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import React, { useEffect, useState } from 'react'
 import { useAdminStore } from '../admin/admin-store'
 import { usePlatformStore } from './platform-store'
 import {
@@ -40,67 +39,116 @@ export function OverviewPage() {
       getStores(token).then((r) => setStores(r.stores)),
       getPlatformTerminals(token).then((r) => setTerminals(r.terminals)),
       getSalesReport(token).then((r) => setSales(r.summary)),
-      getAuditLogs(token, undefined, 1).then((r) => setRecentLogs(r.data.slice(0, 5))),
+      getAuditLogs(token, undefined, 1).then((r) => setRecentLogs(r.data.slice(0, 6))),
       getWboxStatus(token).then((r) => setWboxStatus(r.connection)).catch(() => null),
     ]).finally(() => setLoading(false))
   }, [token])
 
-  if (loading) return <div>Loading platform overview…</div>
+  if (loading) {
+    return (
+      <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--admin-muted)', fontWeight: 600 }}>
+        Loading platform overview…
+      </div>
+    )
+  }
 
   const onlineTerminals = terminals.filter((t) => t.is_online).length
   const activeStores = stores.filter((s) => s.active).length
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-      {/* Metric Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.25rem' }}>
-        <div style={{ background: '#fff', padding: '1.25rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-          <span style={{ fontSize: '0.85rem', color: '#64748b' }}>Active Stores</span>
-          <h3 style={{ fontSize: '1.75rem', margin: '0.4rem 0', color: '#0f172a' }}>{activeStores} / {stores.length}</h3>
-          <small style={{ color: '#16a34a' }}>● Multi-tenant enabled</small>
-        </div>
-        <div style={{ background: '#fff', padding: '1.25rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-          <span style={{ fontSize: '0.85rem', color: '#64748b' }}>Online Terminals</span>
-          <h3 style={{ fontSize: '1.75rem', margin: '0.4rem 0', color: '#0f172a' }}>{onlineTerminals} / {terminals.length}</h3>
-          <small style={{ color: onlineTerminals > 0 ? '#16a34a' : '#ea580c' }}>● Real-time telemetry</small>
-        </div>
-        <div style={{ background: '#fff', padding: '1.25rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-          <span style={{ fontSize: '0.85rem', color: '#64748b' }}>Total Platform Sales</span>
-          <h3 style={{ fontSize: '1.75rem', margin: '0.4rem 0', color: '#0f172a' }}>{formatMoney(sales?.sales_minor || 0)}</h3>
-          <small style={{ color: '#64748b' }}>{sales?.orders_count || 0} completed orders</small>
-        </div>
-        <div style={{ background: '#fff', padding: '1.25rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-          <span style={{ fontSize: '0.85rem', color: '#64748b' }}>WBOX Bridge Health</span>
-          <h3 style={{ fontSize: '1.25rem', margin: '0.6rem 0', color: wboxStatus?.credentials_configured ? '#16a34a' : '#eab308' }}>
-            {wboxStatus?.credentials_configured ? 'Configured & Active' : 'Pending Config'}
+      {/* Metric Cards Grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: '1.2rem' }}>
+        <div style={{ background: '#fff', padding: '1.3rem', borderRadius: '0.85rem', border: '1px solid var(--admin-line)', boxShadow: '0 1px 4px rgba(0,0,0,0.03)' }}>
+          <span style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--admin-muted)' }}>
+            Active Store Branches
+          </span>
+          <h3 style={{ fontSize: '1.85rem', margin: '0.4rem 0', fontWeight: 800, color: 'var(--admin-ink)' }}>
+            {activeStores} <span style={{ fontSize: '1.1rem', color: 'var(--admin-muted)', fontWeight: 500 }}>/ {stores.length}</span>
           </h3>
-          <small style={{ color: '#64748b' }}>Local File Connector</small>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.75rem', fontWeight: 700, color: '#16a34a', background: '#dcfce7', padding: '0.2rem 0.55rem', borderRadius: '999px' }}>
+            ● Multi-Tenant Isolated
+          </span>
+        </div>
+
+        <div style={{ background: '#fff', padding: '1.3rem', borderRadius: '0.85rem', border: '1px solid var(--admin-line)', boxShadow: '0 1px 4px rgba(0,0,0,0.03)' }}>
+          <span style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--admin-muted)' }}>
+            Online Terminals Fleet
+          </span>
+          <h3 style={{ fontSize: '1.85rem', margin: '0.4rem 0', fontWeight: 800, color: 'var(--admin-ink)' }}>
+            {onlineTerminals} <span style={{ fontSize: '1.1rem', color: 'var(--admin-muted)', fontWeight: 500 }}>/ {terminals.length}</span>
+          </h3>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.75rem', fontWeight: 700, color: onlineTerminals > 0 ? '#16a34a' : '#ea580c', background: onlineTerminals > 0 ? '#dcfce7' : '#ffedd5', padding: '0.2rem 0.55rem', borderRadius: '999px' }}>
+            ● Live Hardware Heartbeats
+          </span>
+        </div>
+
+        <div style={{ background: '#fff', padding: '1.3rem', borderRadius: '0.85rem', border: '1px solid var(--admin-line)', boxShadow: '0 1px 4px rgba(0,0,0,0.03)' }}>
+          <span style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--admin-muted)' }}>
+            Gross Platform Sales
+          </span>
+          <h3 style={{ fontSize: '1.85rem', margin: '0.4rem 0', fontWeight: 800, color: 'var(--admin-primary)' }}>
+            {formatMoney(sales?.sales_minor || 0)}
+          </h3>
+          <span style={{ fontSize: '0.8rem', color: 'var(--admin-muted)', fontWeight: 600 }}>
+            {sales?.orders_count || 0} completed orders
+          </span>
+        </div>
+
+        <div style={{ background: '#fff', padding: '1.3rem', borderRadius: '0.85rem', border: '1px solid var(--admin-line)', boxShadow: '0 1px 4px rgba(0,0,0,0.03)' }}>
+          <span style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--admin-muted)' }}>
+            WBOX POS Connector
+          </span>
+          <h3 style={{ fontSize: '1.35rem', margin: '0.65rem 0', fontWeight: 800, color: wboxStatus?.credentials_configured ? '#16a34a' : '#ea580c' }}>
+            {wboxStatus?.credentials_configured ? 'Active & Ready' : 'Pending Configuration'}
+          </h3>
+          <span style={{ fontSize: '0.8rem', color: 'var(--admin-muted)', fontWeight: 600 }}>
+            Local File System Bridge
+          </span>
         </div>
       </div>
 
-      {/* Recent Security & Platform Audit */}
-      <div style={{ background: '#fff', padding: '1.5rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-        <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.1rem' }}>Recent Platform Events</h3>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
-          <thead>
-            <tr style={{ textAlign: 'left', borderBottom: '2px solid #e2e8f0', color: '#64748b' }}>
-              <th style={{ padding: '0.6rem' }}>Event Action</th>
-              <th style={{ padding: '0.6rem' }}>Actor</th>
-              <th style={{ padding: '0.6rem' }}>Entity</th>
-              <th style={{ padding: '0.6rem' }}>Timestamp</th>
-            </tr>
-          </thead>
-          <tbody>
-            {recentLogs.map((log) => (
-              <tr key={log.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                <td style={{ padding: '0.6rem', fontWeight: 600 }}>{log.action}</td>
-                <td style={{ padding: '0.6rem' }}>{log.actor_name || 'System'}</td>
-                <td style={{ padding: '0.6rem' }}>{log.entity_type} #{log.entity_id}</td>
-                <td style={{ padding: '0.6rem', color: '#64748b' }}>{new Date(log.created_at).toLocaleString()}</td>
+      {/* Recent Security & Platform Events */}
+      <div style={{ background: '#fff', padding: '1.5rem', borderRadius: '0.85rem', border: '1px solid var(--admin-line)', boxShadow: '0 1px 4px rgba(0,0,0,0.03)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.1rem' }}>
+          <div>
+            <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 750, color: 'var(--admin-ink)' }}>Recent Platform Activity</h3>
+            <small style={{ color: 'var(--admin-muted)' }}>Immutable system and audit events</small>
+          </div>
+        </div>
+
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.86rem' }}>
+            <thead>
+              <tr style={{ textAlign: 'left', borderBottom: '2px solid var(--admin-line)', color: 'var(--admin-muted)' }}>
+                <th style={{ padding: '0.65rem', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Action Event</th>
+                <th style={{ padding: '0.65rem', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Actor</th>
+                <th style={{ padding: '0.65rem', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Entity</th>
+                <th style={{ padding: '0.65rem', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Timestamp</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {recentLogs.map((log) => (
+                <tr key={log.id} style={{ borderBottom: '1px solid #f7f4f0' }}>
+                  <td style={{ padding: '0.75rem 0.65rem', fontWeight: 700 }}>
+                    <code style={{ background: '#f5f3f0', padding: '0.2rem 0.45rem', borderRadius: '4px', color: '#c2410c' }}>
+                      {log.action}
+                    </code>
+                  </td>
+                  <td style={{ padding: '0.75rem 0.65rem', color: 'var(--admin-ink)', fontWeight: 600 }}>
+                    {log.actor_name || 'System Auto'}
+                  </td>
+                  <td style={{ padding: '0.75rem 0.65rem', color: 'var(--admin-muted)' }}>
+                    {log.entity_type} #{log.entity_id}
+                  </td>
+                  <td style={{ padding: '0.75rem 0.65rem', color: 'var(--admin-muted)' }}>
+                    {new Date(log.created_at).toLocaleString()}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   )
@@ -155,55 +203,109 @@ export function StoresPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       {/* Create Store Form */}
-      <form onSubmit={handleCreate} style={{ background: '#fff', padding: '1.5rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-        <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.1rem' }}>Create New Store Branch</h3>
+      <form onSubmit={handleCreate} style={{ background: '#fff', padding: '1.5rem', borderRadius: '0.85rem', border: '1px solid var(--admin-line)' }}>
+        <h3 style={{ margin: '0 0 0.3rem 0', fontSize: '1.1rem', fontWeight: 750 }}>Provision New Store Branch</h3>
+        <p style={{ color: 'var(--admin-muted)', fontSize: '0.82rem', marginBottom: '1.25rem' }}>
+          Create an isolated store workspace with its own catalog, terminals, orders, and WBOX configuration.
+        </p>
+
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', alignItems: 'flex-end' }}>
           <div>
-            <label style={{ display: 'block', fontSize: '0.85rem', color: '#64748b', marginBottom: '0.3rem' }}>Store Name</label>
-            <input value={name} onChange={(e) => setName(e.target.value)} required placeholder="e.g. South Branch" style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--admin-muted)', marginBottom: '0.35rem', textTransform: 'uppercase' }}>
+              Store Name
+            </label>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              placeholder="e.g. Northpoint Branch"
+              style={{ width: '100%', padding: '0.55rem 0.75rem', borderRadius: '0.5rem', border: '1px solid var(--admin-line)', fontSize: '0.88rem' }}
+            />
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: '0.85rem', color: '#64748b', marginBottom: '0.3rem' }}>Store Code</label>
-            <input value={code} onChange={(e) => setCode(e.target.value)} required placeholder="e.g. SOUTH" style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--admin-muted)', marginBottom: '0.35rem', textTransform: 'uppercase' }}>
+              Store Code
+            </label>
+            <input
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              required
+              placeholder="e.g. NORTH"
+              style={{ width: '100%', padding: '0.55rem 0.75rem', borderRadius: '0.5rem', border: '1px solid var(--admin-line)', fontSize: '0.88rem' }}
+            />
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: '0.85rem', color: '#64748b', marginBottom: '0.3rem' }}>Timezone</label>
-            <input value={timezone} onChange={(e) => setTimezone(e.target.value)} style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--admin-muted)', marginBottom: '0.35rem', textTransform: 'uppercase' }}>
+              Timezone
+            </label>
+            <input
+              value={timezone}
+              onChange={(e) => setTimezone(e.target.value)}
+              style={{ width: '100%', padding: '0.55rem 0.75rem', borderRadius: '0.5rem', border: '1px solid var(--admin-line)', fontSize: '0.88rem' }}
+            />
           </div>
-          <button type="submit" disabled={submitting} style={{ padding: '0.55rem 1.25rem', background: '#ea580c', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 600, cursor: 'pointer' }}>
+          <button
+            type="submit"
+            disabled={submitting}
+            style={{
+              padding: '0.62rem 1.4rem',
+              background: 'var(--admin-primary)',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '0.5rem',
+              fontWeight: 700,
+              fontSize: '0.88rem',
+              cursor: 'pointer',
+            }}
+          >
             {submitting ? 'Creating…' : '+ Add Store'}
           </button>
         </div>
       </form>
 
       {/* Stores List */}
-      <div style={{ background: '#fff', padding: '1.5rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-        <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.1rem' }}>Active Branches ({stores.length})</h3>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+      <div style={{ background: '#fff', padding: '1.5rem', borderRadius: '0.85rem', border: '1px solid var(--admin-line)' }}>
+        <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.1rem', fontWeight: 750 }}>Managed Stores ({stores.length})</h3>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
           <thead>
-            <tr style={{ textAlign: 'left', borderBottom: '2px solid #e2e8f0', color: '#64748b' }}>
-              <th style={{ padding: '0.6rem' }}>ID</th>
-              <th style={{ padding: '0.6rem' }}>Name</th>
-              <th style={{ padding: '0.6rem' }}>Code</th>
-              <th style={{ padding: '0.6rem' }}>Timezone</th>
-              <th style={{ padding: '0.6rem' }}>Status</th>
-              <th style={{ padding: '0.6rem' }}>Action</th>
+            <tr style={{ textAlign: 'left', borderBottom: '2px solid var(--admin-line)', color: 'var(--admin-muted)' }}>
+              <th style={{ padding: '0.65rem' }}>ID</th>
+              <th style={{ padding: '0.65rem' }}>Store Name</th>
+              <th style={{ padding: '0.65rem' }}>Code</th>
+              <th style={{ padding: '0.65rem' }}>Timezone</th>
+              <th style={{ padding: '0.65rem' }}>Status</th>
+              <th style={{ padding: '0.65rem' }}>Controls</th>
             </tr>
           </thead>
           <tbody>
             {stores.map((st) => (
-              <tr key={st.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                <td style={{ padding: '0.6rem' }}>#{st.id}</td>
-                <td style={{ padding: '0.6rem', fontWeight: 600 }}>{st.name}</td>
-                <td style={{ padding: '0.6rem' }}><code>{st.code}</code></td>
-                <td style={{ padding: '0.6rem', color: '#64748b' }}>{st.timezone}</td>
-                <td style={{ padding: '0.6rem' }}>
-                  <span style={{ padding: '0.2rem 0.5rem', borderRadius: '999px', fontSize: '0.75rem', fontWeight: 700, background: st.active ? '#dcfce7' : '#fee2e2', color: st.active ? '#16a34a' : '#ef4444' }}>
+              <tr key={st.id} style={{ borderBottom: '1px solid #f7f4f0' }}>
+                <td style={{ padding: '0.75rem 0.65rem', fontWeight: 700, color: 'var(--admin-muted)' }}>#{st.id}</td>
+                <td style={{ padding: '0.75rem 0.65rem', fontWeight: 750 }}>{st.name}</td>
+                <td style={{ padding: '0.75rem 0.65rem' }}>
+                  <code style={{ background: '#f5f3f0', padding: '0.2rem 0.45rem', borderRadius: '4px', fontWeight: 700 }}>
+                    {st.code}
+                  </code>
+                </td>
+                <td style={{ padding: '0.75rem 0.65rem', color: 'var(--admin-muted)' }}>{st.timezone}</td>
+                <td style={{ padding: '0.75rem 0.65rem' }}>
+                  <span style={{ padding: '0.25rem 0.6rem', borderRadius: '999px', fontSize: '0.72rem', fontWeight: 800, background: st.active ? '#dcfce7' : '#fee2e2', color: st.active ? '#16a34a' : '#ef4444' }}>
                     {st.active ? 'ACTIVE' : 'INACTIVE'}
                   </span>
                 </td>
-                <td style={{ padding: '0.6rem' }}>
-                  <button onClick={() => toggleActive(st)} style={{ padding: '0.3rem 0.6rem', fontSize: '0.8rem', borderRadius: '4px', border: '1px solid #cbd5e1', cursor: 'pointer' }}>
+                <td style={{ padding: '0.75rem 0.65rem' }}>
+                  <button
+                    onClick={() => toggleActive(st)}
+                    style={{
+                      padding: '0.35rem 0.75rem',
+                      fontSize: '0.8rem',
+                      fontWeight: 650,
+                      borderRadius: '0.4rem',
+                      border: '1px solid var(--admin-line)',
+                      background: 'var(--admin-bg)',
+                      cursor: 'pointer',
+                    }}
+                  >
                     {st.active ? 'Deactivate' : 'Activate'}
                   </button>
                 </td>
@@ -223,15 +325,13 @@ export function UsersPage() {
   const token = useAdminStore((s) => s.token)
   const [users, setUsers] = useState<PlatformUser[]>([])
   const [stores, setStores] = useState<PlatformStore[]>([])
-  const [loading, setLoading] = useState(true)
 
   const reload = () => {
     if (!token) return
-    setLoading(true)
     Promise.all([
       getUsers(token).then((r) => setUsers(r.users)),
       getStores(token).then((r) => setStores(r.stores)),
-    ]).finally(() => setLoading(false))
+    ])
   }
 
   useEffect(() => {
@@ -252,33 +352,41 @@ export function UsersPage() {
   }
 
   return (
-    <div style={{ background: '#fff', padding: '1.5rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-      <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.1rem' }}>Platform Users ({users.length})</h3>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+    <div style={{ background: '#fff', padding: '1.5rem', borderRadius: '0.85rem', border: '1px solid var(--admin-line)' }}>
+      <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.1rem', fontWeight: 750 }}>Platform Accounts ({users.length})</h3>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
         <thead>
-          <tr style={{ textAlign: 'left', borderBottom: '2px solid #e2e8f0', color: '#64748b' }}>
-            <th style={{ padding: '0.6rem' }}>Name</th>
-            <th style={{ padding: '0.6rem' }}>Email</th>
-            <th style={{ padding: '0.6rem' }}>System Role</th>
-            <th style={{ padding: '0.6rem' }}>Assigned Store</th>
+          <tr style={{ textAlign: 'left', borderBottom: '2px solid var(--admin-line)', color: 'var(--admin-muted)' }}>
+            <th style={{ padding: '0.65rem' }}>Name</th>
+            <th style={{ padding: '0.65rem' }}>Email Address</th>
+            <th style={{ padding: '0.65rem' }}>Platform Role</th>
+            <th style={{ padding: '0.65rem' }}>Assigned Store</th>
           </tr>
         </thead>
         <tbody>
           {users.map((u) => (
-            <tr key={u.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-              <td style={{ padding: '0.6rem', fontWeight: 600 }}>{u.name}</td>
-              <td style={{ padding: '0.6rem' }}>{u.email}</td>
-              <td style={{ padding: '0.6rem' }}>
-                <select value={u.role} onChange={(e) => handleRoleChange(u.id, e.target.value)} style={{ padding: '0.3rem', borderRadius: '4px', border: '1px solid #cbd5e1' }}>
+            <tr key={u.id} style={{ borderBottom: '1px solid #f7f4f0' }}>
+              <td style={{ padding: '0.75rem 0.65rem', fontWeight: 750 }}>{u.name}</td>
+              <td style={{ padding: '0.75rem 0.65rem', color: 'var(--admin-muted)' }}>{u.email}</td>
+              <td style={{ padding: '0.75rem 0.65rem' }}>
+                <select
+                  value={u.role}
+                  onChange={(e) => handleRoleChange(u.id, e.target.value)}
+                  style={{ padding: '0.35rem 0.6rem', borderRadius: '0.4rem', border: '1px solid var(--admin-line)', fontSize: '0.82rem', fontWeight: 600 }}
+                >
                   <option value="store_admin">Store Admin</option>
                   <option value="super_admin">Super Admin</option>
                 </select>
               </td>
-              <td style={{ padding: '0.6rem' }}>
-                <select value={u.store_id ?? ''} onChange={(e) => handleStoreChange(u.id, e.target.value)} style={{ padding: '0.3rem', borderRadius: '4px', border: '1px solid #cbd5e1' }}>
-                  <option value="">(No store assigned)</option>
+              <td style={{ padding: '0.75rem 0.65rem' }}>
+                <select
+                  value={u.store_id ?? ''}
+                  onChange={(e) => handleStoreChange(u.id, e.target.value)}
+                  style={{ padding: '0.35rem 0.6rem', borderRadius: '0.4rem', border: '1px solid var(--admin-line)', fontSize: '0.82rem', fontWeight: 600 }}
+                >
+                  <option value="">(Platform-wide / Unassigned)</option>
                   {stores.map((st) => (
-                    <option key={st.id} value={st.id}>{st.name}</option>
+                    <option key={st.id} value={st.id}>{st.name} ({st.code})</option>
                   ))}
                 </select>
               </td>
@@ -296,42 +404,43 @@ export function UsersPage() {
 export function TerminalsPage() {
   const token = useAdminStore((s) => s.token)
   const [terminals, setTerminals] = useState<PlatformTerminal[]>([])
-  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (!token) return
-    getPlatformTerminals(token)
-      .then((r) => setTerminals(r.terminals))
-      .finally(() => setLoading(false))
+    getPlatformTerminals(token).then((r) => setTerminals(r.terminals))
   }, [token])
 
   return (
-    <div style={{ background: '#fff', padding: '1.5rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-      <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.1rem' }}>Hardware Terminals Across Stores</h3>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+    <div style={{ background: '#fff', padding: '1.5rem', borderRadius: '0.85rem', border: '1px solid var(--admin-line)' }}>
+      <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.1rem', fontWeight: 750 }}>Hardware Fleet Telemetry</h3>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
         <thead>
-          <tr style={{ textAlign: 'left', borderBottom: '2px solid #e2e8f0', color: '#64748b' }}>
-            <th style={{ padding: '0.6rem' }}>Terminal ID</th>
-            <th style={{ padding: '0.6rem' }}>Name</th>
-            <th style={{ padding: '0.6rem' }}>Store</th>
-            <th style={{ padding: '0.6rem' }}>WBOX Kiosk #</th>
-            <th style={{ padding: '0.6rem' }}>Status</th>
-            <th style={{ padding: '0.6rem' }}>Telemetry</th>
+          <tr style={{ textAlign: 'left', borderBottom: '2px solid var(--admin-line)', color: 'var(--admin-muted)' }}>
+            <th style={{ padding: '0.65rem' }}>Terminal ID</th>
+            <th style={{ padding: '0.65rem' }}>Terminal Name</th>
+            <th style={{ padding: '0.65rem' }}>Store Location</th>
+            <th style={{ padding: '0.65rem' }}>WBOX Kiosk #</th>
+            <th style={{ padding: '0.65rem' }}>Status</th>
+            <th style={{ padding: '0.65rem' }}>Last Heartbeat</th>
           </tr>
         </thead>
         <tbody>
           {terminals.map((t) => (
-            <tr key={t.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-              <td style={{ padding: '0.6rem', fontWeight: 600 }}><code>{t.id}</code></td>
-              <td style={{ padding: '0.6rem' }}>{t.name}</td>
-              <td style={{ padding: '0.6rem' }}>{t.store_name || `Store #${t.store_id}`}</td>
-              <td style={{ padding: '0.6rem' }}><code>{t.wbox_kiosk_number}</code></td>
-              <td style={{ padding: '0.6rem' }}>
-                <span style={{ padding: '0.2rem 0.5rem', borderRadius: '999px', fontSize: '0.75rem', fontWeight: 700, background: t.is_online ? '#dcfce7' : '#fee2e2', color: t.is_online ? '#16a34a' : '#ef4444' }}>
+            <tr key={t.id} style={{ borderBottom: '1px solid #f7f4f0' }}>
+              <td style={{ padding: '0.75rem 0.65rem', fontWeight: 750 }}>
+                <code style={{ background: '#f5f3f0', padding: '0.2rem 0.45rem', borderRadius: '4px' }}>{t.id}</code>
+              </td>
+              <td style={{ padding: '0.75rem 0.65rem' }}>{t.name}</td>
+              <td style={{ padding: '0.75rem 0.65rem', color: 'var(--admin-muted)', fontWeight: 600 }}>{t.store_name || `Store #${t.store_id}`}</td>
+              <td style={{ padding: '0.75rem 0.65rem' }}>
+                <code style={{ color: '#c2410c', fontWeight: 700 }}>{t.wbox_kiosk_number}</code>
+              </td>
+              <td style={{ padding: '0.75rem 0.65rem' }}>
+                <span style={{ padding: '0.25rem 0.6rem', borderRadius: '999px', fontSize: '0.72rem', fontWeight: 800, background: t.is_online ? '#dcfce7' : '#fee2e2', color: t.is_online ? '#16a34a' : '#ef4444' }}>
                   {t.is_online ? 'ONLINE' : 'OFFLINE'}
                 </span>
               </td>
-              <td style={{ padding: '0.6rem', color: '#64748b' }}>
+              <td style={{ padding: '0.75rem 0.65rem', color: 'var(--admin-muted)' }}>
                 {t.last_heartbeat_at ? new Date(t.last_heartbeat_at).toLocaleTimeString() : 'Never'}
               </td>
             </tr>
@@ -355,32 +464,33 @@ export function WboxPage() {
   }, [token])
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-      <div style={{ background: '#fff', padding: '1.5rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-        <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.1rem' }}>WBOX POS Bridge Integration</h3>
-        <p style={{ color: '#64748b', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
-          Monitors the local file system connector between Laravel and the store-side legacy WBOX POS machine.
-        </p>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
-          <div style={{ padding: '1rem', background: '#f8fafc', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
-            <strong style={{ display: 'block', marginBottom: '0.3rem' }}>Request Folder:</strong>
-            <code>{wbox?.request_path?.path || 'Not configured'}</code>
-            <div style={{ marginTop: '0.5rem', color: wbox?.request_path?.writable ? '#16a34a' : '#dc2626', fontSize: '0.85rem', fontWeight: 600 }}>
-              {wbox?.request_path?.writable ? '✓ Writable' : '✕ Not Accessible'}
-            </div>
+    <div style={{ background: '#fff', padding: '1.5rem', borderRadius: '0.85rem', border: '1px solid var(--admin-line)' }}>
+      <h3 style={{ margin: '0 0 0.3rem 0', fontSize: '1.1rem', fontWeight: 750 }}>WBOX POS Bridge Connector</h3>
+      <p style={{ color: 'var(--admin-muted)', fontSize: '0.82rem', marginBottom: '1.5rem' }}>
+        Verifies the active file handshake directory between the kiosk service and the local Windows POS terminal.
+      </p>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1.25rem' }}>
+        <div style={{ padding: '1.2rem', background: 'var(--admin-bg)', borderRadius: '0.75rem', border: '1px solid var(--admin-line)' }}>
+          <strong style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.35rem' }}>Request Directory:</strong>
+          <code style={{ fontSize: '0.8rem', wordBreak: 'break-all' }}>{wbox?.request_path?.path || 'Not configured'}</code>
+          <div style={{ marginTop: '0.75rem', color: wbox?.request_path?.writable ? '#16a34a' : '#dc2626', fontSize: '0.82rem', fontWeight: 750 }}>
+            {wbox?.request_path?.writable ? '✓ Writable & Ready' : '✕ Path Not Accessible'}
           </div>
-          <div style={{ padding: '1rem', background: '#f8fafc', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
-            <strong style={{ display: 'block', marginBottom: '0.3rem' }}>Response Folder:</strong>
-            <code>{wbox?.response_path?.path || 'Not configured'}</code>
-            <div style={{ marginTop: '0.5rem', color: wbox?.response_path?.readable ? '#16a34a' : '#dc2626', fontSize: '0.85rem', fontWeight: 600 }}>
-              {wbox?.response_path?.readable ? '✓ Readable' : '✕ Not Accessible'}
-            </div>
+        </div>
+
+        <div style={{ padding: '1.2rem', background: 'var(--admin-bg)', borderRadius: '0.75rem', border: '1px solid var(--admin-line)' }}>
+          <strong style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.35rem' }}>Response Directory:</strong>
+          <code style={{ fontSize: '0.8rem', wordBreak: 'break-all' }}>{wbox?.response_path?.path || 'Not configured'}</code>
+          <div style={{ marginTop: '0.75rem', color: wbox?.response_path?.readable ? '#16a34a' : '#dc2626', fontSize: '0.82rem', fontWeight: 750 }}>
+            {wbox?.response_path?.readable ? '✓ Readable & Ready' : '✕ Path Not Accessible'}
           </div>
-          <div style={{ padding: '1rem', background: '#f8fafc', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
-            <strong style={{ display: 'block', marginBottom: '0.3rem' }}>Auth Token Encryption:</strong>
-            <div style={{ marginTop: '0.5rem', color: wbox?.credentials_configured ? '#16a34a' : '#dc2626', fontSize: '0.85rem', fontWeight: 600 }}>
-              {wbox?.credentials_configured ? '✓ Stored Encrypted' : '✕ Not Set'}
-            </div>
+        </div>
+
+        <div style={{ padding: '1.2rem', background: 'var(--admin-bg)', borderRadius: '0.75rem', border: '1px solid var(--admin-line)' }}>
+          <strong style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.35rem' }}>Encrypted Credentials:</strong>
+          <div style={{ marginTop: '0.75rem', color: wbox?.credentials_configured ? '#16a34a' : '#dc2626', fontSize: '0.82rem', fontWeight: 750 }}>
+            {wbox?.credentials_configured ? '✓ Stored Encrypted (AES-256)' : '✕ Missing Auth Secret'}
           </div>
         </div>
       </div>
@@ -406,33 +516,33 @@ export function ReportsPage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.25rem' }}>
-        <div style={{ background: '#fff', padding: '1.25rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-          <span style={{ fontSize: '0.85rem', color: '#64748b' }}>Platform Gross Sales</span>
-          <h3 style={{ fontSize: '1.75rem', margin: '0.4rem 0', color: '#0f172a' }}>{formatMoney(summary?.sales_minor || 0)}</h3>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: '1.2rem' }}>
+        <div style={{ background: '#fff', padding: '1.3rem', borderRadius: '0.85rem', border: '1px solid var(--admin-line)' }}>
+          <span style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--admin-muted)' }}>Platform Gross Revenue</span>
+          <h3 style={{ fontSize: '1.85rem', margin: '0.4rem 0', fontWeight: 800, color: 'var(--admin-primary)' }}>{formatMoney(summary?.sales_minor || 0)}</h3>
         </div>
-        <div style={{ background: '#fff', padding: '1.25rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-          <span style={{ fontSize: '0.85rem', color: '#64748b' }}>Total Paid Orders</span>
-          <h3 style={{ fontSize: '1.75rem', margin: '0.4rem 0', color: '#0f172a' }}>{summary?.orders_count || 0}</h3>
+        <div style={{ background: '#fff', padding: '1.3rem', borderRadius: '0.85rem', border: '1px solid var(--admin-line)' }}>
+          <span style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--admin-muted)' }}>Total Paid Orders</span>
+          <h3 style={{ fontSize: '1.85rem', margin: '0.4rem 0', fontWeight: 800, color: 'var(--admin-ink)' }}>{summary?.orders_count || 0}</h3>
         </div>
       </div>
 
-      <div style={{ background: '#fff', padding: '1.5rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-        <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.1rem' }}>Revenue Breakdown by Store</h3>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+      <div style={{ background: '#fff', padding: '1.5rem', borderRadius: '0.85rem', border: '1px solid var(--admin-line)' }}>
+        <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.1rem', fontWeight: 750 }}>Revenue Breakdown by Store Branch</h3>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
           <thead>
-            <tr style={{ textAlign: 'left', borderBottom: '2px solid #e2e8f0', color: '#64748b' }}>
-              <th style={{ padding: '0.6rem' }}>Store Name</th>
-              <th style={{ padding: '0.6rem' }}>Orders Count</th>
-              <th style={{ padding: '0.6rem' }}>Total Sales</th>
+            <tr style={{ textAlign: 'left', borderBottom: '2px solid var(--admin-line)', color: 'var(--admin-muted)' }}>
+              <th style={{ padding: '0.65rem' }}>Store Name</th>
+              <th style={{ padding: '0.65rem' }}>Completed Orders</th>
+              <th style={{ padding: '0.65rem' }}>Total Sales</th>
             </tr>
           </thead>
           <tbody>
             {byStore.map((st) => (
-              <tr key={st.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                <td style={{ padding: '0.6rem', fontWeight: 600 }}>{st.name}</td>
-                <td style={{ padding: '0.6rem' }}>{st.orders_count}</td>
-                <td style={{ padding: '0.6rem', fontWeight: 700, color: '#ea580c' }}>{formatMoney(st.sales_minor)}</td>
+              <tr key={st.id} style={{ borderBottom: '1px solid #f7f4f0' }}>
+                <td style={{ padding: '0.75rem 0.65rem', fontWeight: 750 }}>{st.name}</td>
+                <td style={{ padding: '0.75rem 0.65rem', color: 'var(--admin-muted)' }}>{st.orders_count}</td>
+                <td style={{ padding: '0.75rem 0.65rem', fontWeight: 800, color: 'var(--admin-primary)' }}>{formatMoney(st.sales_minor)}</td>
               </tr>
             ))}
           </tbody>
@@ -450,46 +560,50 @@ export function AuditLogPage() {
   const [logs, setLogs] = useState<AuditLogItem[]>([])
   const [actionFilter, setActionFilter] = useState('')
 
-  const reload = () => {
+  useEffect(() => {
     if (!token) return
     getAuditLogs(token, actionFilter || undefined).then((r) => setLogs(r.data))
-  }
-
-  useEffect(() => {
-    reload()
   }, [token, actionFilter])
 
   return (
-    <div style={{ background: '#fff', padding: '1.5rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-        <h3 style={{ margin: 0, fontSize: '1.1rem' }}>System Audit Trail</h3>
+    <div style={{ background: '#fff', padding: '1.5rem', borderRadius: '0.85rem', border: '1px solid var(--admin-line)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+        <div>
+          <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 750 }}>Immutable Audit Logs</h3>
+          <small style={{ color: 'var(--admin-muted)' }}>Cryptographically stamped audit records</small>
+        </div>
         <input
           value={actionFilter}
           onChange={(e) => setActionFilter(e.target.value)}
-          placeholder="Filter by action (e.g. order.status_changed)…"
-          style={{ padding: '0.45rem 0.75rem', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem', width: '300px' }}
+          placeholder="Filter by action (e.g. settings.updated)…"
+          style={{ padding: '0.5rem 0.8rem', borderRadius: '0.5rem', border: '1px solid var(--admin-line)', fontSize: '0.85rem', width: '300px' }}
         />
       </div>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.86rem' }}>
         <thead>
-          <tr style={{ textAlign: 'left', borderBottom: '2px solid #e2e8f0', color: '#64748b' }}>
-            <th style={{ padding: '0.6rem' }}>Action</th>
-            <th style={{ padding: '0.6rem' }}>Actor</th>
-            <th style={{ padding: '0.6rem' }}>Entity</th>
-            <th style={{ padding: '0.6rem' }}>Changes (Before / After)</th>
-            <th style={{ padding: '0.6rem' }}>Timestamp</th>
+          <tr style={{ textAlign: 'left', borderBottom: '2px solid var(--admin-line)', color: 'var(--admin-muted)' }}>
+            <th style={{ padding: '0.65rem' }}>Action</th>
+            <th style={{ padding: '0.65rem' }}>Actor</th>
+            <th style={{ padding: '0.65rem' }}>Entity</th>
+            <th style={{ padding: '0.65rem' }}>Audit Snapshot</th>
+            <th style={{ padding: '0.65rem' }}>Timestamp</th>
           </tr>
         </thead>
         <tbody>
           {logs.map((log) => (
-            <tr key={log.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-              <td style={{ padding: '0.6rem', fontWeight: 600 }}><code>{log.action}</code></td>
-              <td style={{ padding: '0.6rem' }}>{log.actor_name || 'System'} ({log.actor_email || 'n/a'})</td>
-              <td style={{ padding: '0.6rem' }}>{log.entity_type} #{log.entity_id}</td>
-              <td style={{ padding: '0.6rem', fontSize: '0.8rem', maxWidth: '280px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <tr key={log.id} style={{ borderBottom: '1px solid #f7f4f0' }}>
+              <td style={{ padding: '0.75rem 0.65rem', fontWeight: 750 }}>
+                <code style={{ background: '#f5f3f0', padding: '0.2rem 0.45rem', borderRadius: '4px', color: '#c2410c' }}>
+                  {log.action}
+                </code>
+              </td>
+              <td style={{ padding: '0.75rem 0.65rem', fontWeight: 600 }}>{log.actor_name || 'System Auto'}</td>
+              <td style={{ padding: '0.75rem 0.65rem', color: 'var(--admin-muted)' }}>{log.entity_type} #{log.entity_id}</td>
+              <td style={{ padding: '0.75rem 0.65rem', fontSize: '0.78rem', maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {log.after || log.before || '—'}
               </td>
-              <td style={{ padding: '0.6rem', color: '#64748b' }}>{new Date(log.created_at).toLocaleString()}</td>
+              <td style={{ padding: '0.75rem 0.65rem', color: 'var(--admin-muted)' }}>{new Date(log.created_at).toLocaleString()}</td>
             </tr>
           ))}
         </tbody>
@@ -503,7 +617,6 @@ export function AuditLogPage() {
  * ------------------------------------------------------------- */
 export function SecurityPage() {
   const token = useAdminStore((s) => s.token)
-  const user = useAdminStore((s) => s.user)
   const [users, setUsers] = useState<PlatformUser[]>([])
   const [stores, setStores] = useState<PlatformStore[]>([])
   const [targetUserId, setTargetUserId] = useState<number | ''>('')
@@ -534,7 +647,7 @@ export function SecurityPage() {
         originalToken: token,
       })
       useAdminStore.getState().setSession(res.token, res.user)
-      alert(`Impersonation active for ${res.user.name}. You are now operating as this store admin.`)
+      alert(`Impersonation session active for ${res.user.name}.`)
     } catch (err: any) {
       alert(err.message)
     } finally {
@@ -543,44 +656,80 @@ export function SecurityPage() {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-      <form onSubmit={handleImpersonate} style={{ background: '#fff', padding: '1.5rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-        <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.1rem' }}>Audited Super Admin Impersonation</h3>
-        <p style={{ color: '#64748b', fontSize: '0.85rem', marginBottom: '1.25rem' }}>
-          Temporarily assume a store manager identity to diagnose issues. All actions are audited. Maximum duration is 30 minutes.
-        </p>
+    <form onSubmit={handleImpersonate} style={{ background: '#fff', padding: '1.75rem', borderRadius: '0.85rem', border: '1px solid var(--admin-line)', maxWidth: '640px' }}>
+      <h3 style={{ margin: '0 0 0.3rem 0', fontSize: '1.15rem', fontWeight: 750 }}>Audited Impersonation Mode</h3>
+      <p style={{ color: 'var(--admin-muted)', fontSize: '0.84rem', marginBottom: '1.5rem' }}>
+        Assume temporary Store Manager privileges to troubleshoot catalog, live orders, or hardware issues. All operations are logged. Sessions expire after 30 minutes.
+      </p>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxWidth: '500px' }}>
-          <div>
-            <label style={{ display: 'block', fontSize: '0.85rem', color: '#64748b', marginBottom: '0.3rem' }}>Target User (Store Admin)</label>
-            <select value={targetUserId} onChange={(e) => setTargetUserId(Number(e.target.value))} required style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
-              <option value="">Select a user…</option>
-              {users.map((u) => (
-                <option key={u.id} value={u.id}>{u.name} ({u.email}) — Store #{u.store_id || 'n/a'}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label style={{ display: 'block', fontSize: '0.85rem', color: '#64748b', marginBottom: '0.3rem' }}>Target Store Context</label>
-            <select value={targetStoreId} onChange={(e) => setTargetStoreId(Number(e.target.value))} required style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
-              <option value="">Select target store…</option>
-              {stores.map((st) => (
-                <option key={st.id} value={st.id}>{st.name} ({st.code})</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label style={{ display: 'block', fontSize: '0.85rem', color: '#64748b', marginBottom: '0.3rem' }}>Mandatory Audit Reason</label>
-            <input value={reason} onChange={(e) => setReason(e.target.value)} required minLength={5} placeholder="e.g. Assisting store with catalog pricing dispute" style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
-          </div>
-
-          <button type="submit" disabled={submitting} style={{ padding: '0.65rem 1.5rem', background: '#ea580c', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 700, cursor: 'pointer', alignSelf: 'flex-start' }}>
-            {submitting ? 'Starting Session…' : 'Start Audited Impersonation'}
-          </button>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+        <div>
+          <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--admin-muted)', marginBottom: '0.35rem' }}>
+            Target Store User
+          </label>
+          <select
+            value={targetUserId}
+            onChange={(e) => setTargetUserId(Number(e.target.value))}
+            required
+            style={{ width: '100%', padding: '0.55rem 0.75rem', borderRadius: '0.5rem', border: '1px solid var(--admin-line)', fontSize: '0.88rem', fontWeight: 600 }}
+          >
+            <option value="">Select target store manager…</option>
+            {users.map((u) => (
+              <option key={u.id} value={u.id}>{u.name} ({u.email}) — Store #{u.store_id || 'n/a'}</option>
+            ))}
+          </select>
         </div>
-      </form>
-    </div>
+
+        <div>
+          <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--admin-muted)', marginBottom: '0.35rem' }}>
+            Target Store Context
+          </label>
+          <select
+            value={targetStoreId}
+            onChange={(e) => setTargetStoreId(Number(e.target.value))}
+            required
+            style={{ width: '100%', padding: '0.55rem 0.75rem', borderRadius: '0.5rem', border: '1px solid var(--admin-line)', fontSize: '0.88rem', fontWeight: 600 }}
+          >
+            <option value="">Select store branch…</option>
+            {stores.map((st) => (
+              <option key={st.id} value={st.id}>{st.name} ({st.code})</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--admin-muted)', marginBottom: '0.35rem' }}>
+            Mandatory Audit Justification
+          </label>
+          <input
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            required
+            minLength={5}
+            placeholder="e.g. Assisting store with menu prices sync"
+            style={{ width: '100%', padding: '0.55rem 0.75rem', borderRadius: '0.5rem', border: '1px solid var(--admin-line)', fontSize: '0.88rem' }}
+          />
+        </div>
+
+        <button
+          type="submit"
+          disabled={submitting}
+          style={{
+            marginTop: '0.5rem',
+            padding: '0.7rem 1.6rem',
+            background: 'var(--admin-primary)',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '0.55rem',
+            fontWeight: 750,
+            fontSize: '0.88rem',
+            cursor: 'pointer',
+            alignSelf: 'flex-start',
+          }}
+        >
+          {submitting ? 'Starting Session…' : 'Start Audited Impersonation'}
+        </button>
+      </div>
+    </form>
   )
 }
