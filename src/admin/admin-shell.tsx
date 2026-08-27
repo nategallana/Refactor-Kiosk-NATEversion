@@ -47,6 +47,11 @@ export function AdminShell({ title, eyebrow, children, action }: { title: string
         {links.map(({ label, href, icon }) => <NavLink key={href} to={href} end={href === '/admin'}>
           <NavIcon name={icon} /><span>{label}</span>
         </NavLink>)}
+        {user?.role === 'super_admin' && (
+          <NavLink to="/platform" style={{ marginTop: '1rem', background: '#0f172a', color: '#f8fafc', borderRadius: '8px', padding: '0.6rem 0.8rem', display: 'flex', alignItems: 'center', gap: '0.6rem', textDecoration: 'none', fontWeight: 600 }}>
+            <span>⚡</span><span>Platform Admin &rarr;</span>
+          </NavLink>
+        )}
       </nav>
       <button className="admin-logout" onClick={leave}>
         <span aria-hidden="true">&larr;</span><strong>Logout</strong>
