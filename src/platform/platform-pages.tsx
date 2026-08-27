@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { useAdminStore } from '../admin/admin-store'
 import { usePlatformStore } from './platform-store'
 import {
@@ -21,6 +21,12 @@ import {
 import { getWboxStatus } from '../admin/admin-api'
 import { formatMoney } from '../domain/order'
 
+interface WboxConnectionStatus {
+  credentials_configured: boolean
+  request_path?: { path: string | null; exists: boolean; writable: boolean }
+  response_path?: { path: string | null; exists: boolean; readable: boolean }
+}
+
 /* -------------------------------------------------------------
  * 1. OVERVIEW PAGE
  * ------------------------------------------------------------- */
@@ -30,7 +36,7 @@ export function OverviewPage() {
   const [terminals, setTerminals] = useState<PlatformTerminal[]>([])
   const [sales, setSales] = useState<SalesSummary | null>(null)
   const [recentLogs, setRecentLogs] = useState<AuditLogItem[]>([])
-  const [wboxStatus, setWboxStatus] = useState<any>(null)
+  const [wboxStatus, setWboxStatus] = useState<WboxConnectionStatus | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -163,20 +169,18 @@ export function StoresPage() {
   const [name, setName] = useState('')
   const [code, setCode] = useState('')
   const [timezone, setTimezone] = useState('Asia/Manila')
-  const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
 
-  const reload = () => {
+  const reload = useCallback(() => {
     if (!token) return
-    setLoading(true)
     getStores(token)
       .then((r) => setStores(r.stores))
-      .finally(() => setLoading(false))
-  }
+      .catch(() => undefined)
+  }, [token])
 
   useEffect(() => {
     reload()
-  }, [token])
+  }, [reload])
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -187,8 +191,8 @@ export function StoresPage() {
       setName('')
       setCode('')
       reload()
-    } catch (err: any) {
-      alert(err.message)
+    } catch (err: unknown) {
+      if (err instanceof Error) alert(err.message)
     } finally {
       setSubmitting(false)
     }
@@ -326,17 +330,17 @@ export function UsersPage() {
   const [users, setUsers] = useState<PlatformUser[]>([])
   const [stores, setStores] = useState<PlatformStore[]>([])
 
-  const reload = () => {
+  const reload = useCallback(() => {
     if (!token) return
     Promise.all([
       getUsers(token).then((r) => setUsers(r.users)),
       getStores(token).then((r) => setStores(r.stores)),
     ])
-  }
+  }, [token])
 
   useEffect(() => {
     reload()
-  }, [token])
+  }, [reload])
 
   const handleRoleChange = async (userId: number, role: string) => {
     if (!token) return
@@ -456,7 +460,7 @@ export function TerminalsPage() {
  * ------------------------------------------------------------- */
 export function WboxPage() {
   const token = useAdminStore((s) => s.token)
-  const [wbox, setWbox] = useState<any>(null)
+  const [wbox, setWbox] = useState<WboxConnectionStatus | null>(null)
 
   useEffect(() => {
     if (!token) return
@@ -648,8 +652,8 @@ export function SecurityPage() {
       })
       useAdminStore.getState().setSession(res.token, res.user)
       alert(`Impersonation session active for ${res.user.name}.`)
-    } catch (err: any) {
-      alert(err.message)
+    } catch (err: unknown) {
+      if (err instanceof Error) alert(err.message)
     } finally {
       setSubmitting(false)
     }
