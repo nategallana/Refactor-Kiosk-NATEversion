@@ -11,15 +11,35 @@ use Illuminate\Validation\Rule;
 
 class AdminSettingsController extends Controller
 {
-    public function show(): JsonResponse
+    public function show(Request $request): JsonResponse
     {
-        return response()->json(['settings' => $this->settings()]);
+        $storeId = (int) $request->attributes->get('store_id');
+
+        return response()->json(['settings' => $this->settings($storeId)]);
     }
 
-    public function publicShow(): JsonResponse
+    public function publicShow(Request $request): JsonResponse
     {
-        return response()->json(['settings' => DB::table('system_settings')->where('id', 1)->first([
+        $storeId = (int) ($request->attributes->get('store_id') ?: 1);
+
+        return response()->json(['settings' => DB::table('system_settings')->where('store_id', $storeId)->first([
             'id',
+            'store_id',
+            'brand_name',
+            'tax_rate_basis_points',
+            'service_mode',
+            'currency',
+            'counter_payment_enabled',
+            'card_payment_enabled',
+            'idle_timeout_seconds',
+            'auto_reset_seconds',
+            'receipt_header',
+            'receipt_footer',
+            'created_at',
+            'updated_at',
+        ]) ?? DB::table('system_settings')->where('id', 1)->first([
+            'id',
+            'store_id',
             'brand_name',
             'tax_rate_basis_points',
             'service_mode',
@@ -37,6 +57,7 @@ class AdminSettingsController extends Controller
 
     public function update(Request $request): JsonResponse
     {
+        $storeId = (int) $request->attributes->get('store_id');
         $data = $request->validate([
             'brand_name' => ['required', 'string', 'max:80'],
             'tax_rate_basis_points' => ['required', 'integer', 'min:0', 'max:10000'],
@@ -69,8 +90,8 @@ class AdminSettingsController extends Controller
             ], 422);
         }
 
-        $beforeRecord = DB::table('system_settings')->where('id', 1)->first();
-        $before = $this->settings();
+        $beforeRecord = DB::table('system_settings')->where('store_id', $storeId)->first() ?? DB::table('system_settings')->where('id', 1)->first();
+        $before = $this->settings($storeId);
         $effectiveWboxEnabled = (bool) ($data['wbox_enabled'] ?? $beforeRecord?->wbox_enabled ?? false);
         $effectiveRequestPath = $data['wbox_request_path'] ?? $beforeRecord?->wbox_request_path;
         $effectiveResponsePath = $data['wbox_response_path'] ?? $beforeRecord?->wbox_response_path;
@@ -93,25 +114,25 @@ class AdminSettingsController extends Controller
             $data['wbox_auth_token_encrypted'] = Crypt::encryptString($newToken);
         }
         DB::table('system_settings')->updateOrInsert(
-            ['id' => 1],
-            [...$data, 'updated_at' => now(), 'created_at' => $before?->created_at ?? now()],
+            ['store_id' => $storeId],
+            [...$data, 'store_id' => $storeId, 'updated_at' => now(), 'created_at' => $before?->created_at ?? now()],
         );
         DB::table('audit_logs')->insert([
             'actor_id' => $request->user()->id,
             'action' => 'settings.updated',
             'entity_type' => 'system_settings',
-            'entity_id' => '1',
+            'entity_id' => (string) $storeId,
             'before' => $before ? json_encode($before) : null,
             'after' => json_encode($this->auditSettings($data, $newToken !== '')),
             'created_at' => now(),
         ]);
 
-        return response()->json(['settings' => $this->settings()]);
+        return response()->json(['settings' => $this->settings($storeId)]);
     }
 
-    private function settings(): ?object
+    private function settings(int $storeId = 1): ?object
     {
-        $settings = DB::table('system_settings')->where('id', 1)->first();
+        $settings = DB::table('system_settings')->where('store_id', $storeId)->first() ?? DB::table('system_settings')->where('id', 1)->first();
         if ($settings === null) {
             return null;
         }

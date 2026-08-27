@@ -9,11 +9,13 @@ use Illuminate\Support\Facades\DB;
 
 class AdminCatalogController extends Controller
 {
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        $categories = DB::table('categories')->orderBy('display_order')->get();
+        $storeId = (int) $request->attributes->get('store_id');
+        $categories = DB::table('categories')->where('store_id', $storeId)->orderBy('display_order')->get();
 
         $products = DB::table('products')
+            ->where('products.store_id', $storeId)
             ->join('categories', 'categories.id', '=', 'products.category_id')
             ->select('products.*', 'categories.name as category_name')
             ->orderBy('products.name')
@@ -30,9 +32,10 @@ class AdminCatalogController extends Controller
 
     public function availability(Request $request, int $product): JsonResponse
     {
+        $storeId = (int) $request->attributes->get('store_id');
         $data = $request->validate(['available' => ['required', 'boolean']]);
-        $before = DB::table('products')->where('id', $product)->firstOrFail();
-        DB::table('products')->where('id', $product)->update(['available' => $data['available'], 'updated_at' => now()]);
+        $before = DB::table('products')->where('id', $product)->where('store_id', $storeId)->firstOrFail();
+        DB::table('products')->where('id', $product)->where('store_id', $storeId)->update(['available' => $data['available'], 'updated_at' => now()]);
         DB::table('audit_logs')->insert([
             'actor_id' => $request->user()->id, 'action' => 'product.availability_changed',
             'entity_type' => 'product', 'entity_id' => (string) $product,
@@ -40,19 +43,20 @@ class AdminCatalogController extends Controller
             'after' => json_encode(['available' => $data['available']]), 'created_at' => now(),
         ]);
 
-        return response()->json(['product' => DB::table('products')->where('id', $product)->first()]);
+        return response()->json(['product' => DB::table('products')->where('id', $product)->where('store_id', $storeId)->first()]);
     }
 
     public function wboxMapping(Request $request, int $product): JsonResponse
     {
+        $storeId = (int) $request->attributes->get('store_id');
         $data = $request->validate([
             'wbox_item_code' => ['nullable', 'string', 'max:64', 'regex:/^[A-Za-z0-9._-]+$/'],
         ]);
-        $before = DB::table('products')->where('id', $product)->firstOrFail();
+        $before = DB::table('products')->where('id', $product)->where('store_id', $storeId)->firstOrFail();
         $code = filled($data['wbox_item_code'] ?? null) ? trim($data['wbox_item_code']) : null;
 
-        DB::transaction(function () use ($request, $product, $before, $code): void {
-            DB::table('products')->where('id', $product)->update(['wbox_item_code' => $code, 'updated_at' => now()]);
+        DB::transaction(function () use ($request, $product, $storeId, $before, $code): void {
+            DB::table('products')->where('id', $product)->where('store_id', $storeId)->update(['wbox_item_code' => $code, 'updated_at' => now()]);
             DB::table('audit_logs')->insert([
                 'actor_id' => $request->user()->id,
                 'action' => 'product.wbox_mapping_changed',
@@ -64,6 +68,6 @@ class AdminCatalogController extends Controller
             ]);
         });
 
-        return response()->json(['product' => DB::table('products')->where('id', $product)->first()]);
+        return response()->json(['product' => DB::table('products')->where('id', $product)->where('store_id', $storeId)->first()]);
     }
 }

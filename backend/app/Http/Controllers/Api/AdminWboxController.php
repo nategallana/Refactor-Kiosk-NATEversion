@@ -17,7 +17,8 @@ class AdminWboxController extends Controller
 
     public function retry(Request $request, int $order): JsonResponse
     {
-        $orderRecord = DB::table('orders')->where('id', $order)->firstOrFail();
+        $storeId = (int) $request->attributes->get('store_id');
+        $orderRecord = DB::table('orders')->where('id', $order)->where('store_id', $storeId)->firstOrFail();
         $export = DB::table('wbox_exports')->where('order_id', $order)->first();
         if ($export !== null && in_array($export->status, ['processing', 'sent', 'acknowledged'], true)) {
             return response()->json(['message' => 'This order cannot be retried in its current WBOX state.'], 409);

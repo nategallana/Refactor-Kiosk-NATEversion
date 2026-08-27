@@ -6,11 +6,14 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 
+use Illuminate\Http\Request;
+
 class AdminDashboardController extends Controller
 {
-    public function __invoke(): JsonResponse
+    public function __invoke(Request $request): JsonResponse
     {
-        $orders = DB::table('orders')->where('placed_at', '>=', now()->startOfDay());
+        $storeId = (int) $request->attributes->get('store_id');
+        $orders = DB::table('orders')->where('store_id', $storeId)->where('placed_at', '>=', now()->startOfDay());
 
         return response()->json([
             'summary' => [
@@ -20,9 +23,9 @@ class AdminDashboardController extends Controller
                     ->sum('total_minor'),
                 'orders' => (clone $orders)->count(),
                 'active_orders' => (clone $orders)->whereNotIn('fulfillment_status', ['completed', 'cancelled'])->count(),
-                'available_products' => DB::table('products')->where('active', true)->where('available', true)->count(),
+                'available_products' => DB::table('products')->where('store_id', $storeId)->where('active', true)->where('available', true)->count(),
             ],
-            'recent_orders' => DB::table('orders')->orderByDesc('placed_at')->limit(6)->get(),
+            'recent_orders' => DB::table('orders')->where('store_id', $storeId)->orderByDesc('placed_at')->limit(6)->get(),
         ]);
     }
 }
