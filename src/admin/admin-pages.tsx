@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { formatMoney } from '../domain/order'
-import { getCatalog, getDashboard, getOrders, setAvailability, setOrderStatus, type AdminOrder, type AdminProduct } from './admin-api'
+import { getCatalog, getDashboard, getOrders, retryWboxExport, setAvailability, setOrderStatus, setWboxMapping, type AdminOrder, type AdminProduct } from './admin-api'
 import { AdminShell } from './admin-shell'
 import { useAdminStore } from './admin-store'
 
@@ -101,6 +101,7 @@ export function CatalogPage() {
   // Form states
   const [editName, setEditName] = useState('')
   const [editSku, setEditSku] = useState('')
+  const [editWboxItemCode, setEditWboxItemCode] = useState('')
   const [editCategory, setEditCategory] = useState('Burgers')
   const [editDesc, setEditDesc] = useState('')
   const [editPrice, setEditPrice] = useState<number>(0)
@@ -156,6 +157,7 @@ export function CatalogPage() {
     setActiveTab('info')
     setEditName(product.name)
     setEditSku(product.sku)
+    setEditWboxItemCode(product.wbox_item_code ?? '')
     setEditCategory(product.category_name)
     setEditDesc(product.description || '')
     setEditPrice(product.price_minor / 100)
@@ -181,6 +183,7 @@ export function CatalogPage() {
       ...editingProduct,
       name: editName.trim() || editingProduct.name,
       sku: targetSku,
+      wbox_item_code: editWboxItemCode.trim() || null,
       category_name: editCategory,
       description: editDesc.trim() || null,
       price_minor: updatedPriceMinor,
@@ -195,6 +198,9 @@ export function CatalogPage() {
     try {
       if (editAvailable !== editingProduct.available) {
         await setAvailability(token, editingProduct.id, editAvailable)
+      }
+      if ((editWboxItemCode.trim() || null) !== editingProduct.wbox_item_code) {
+        await setWboxMapping(token, editingProduct.id, editWboxItemCode.trim() || null)
       }
     } catch {
       // ignore
@@ -228,6 +234,7 @@ export function CatalogPage() {
               accent: '#fff4ed',
               active: true,
               available: true,
+              wbox_item_code: null,
             })
             setActiveTab('combo')
             setIsCombo(true)
@@ -249,6 +256,7 @@ export function CatalogPage() {
             accent: '#fff7ed',
             active: true,
             available: true,
+            wbox_item_code: null,
           })}
         >
           + New product
@@ -678,6 +686,20 @@ export function CatalogPage() {
               </div>
             )}
 
+            <div>
+              <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: '#574d49', marginBottom: '0.3rem' }}>
+                WBOX Item Code
+              </label>
+              <input
+                type='text'
+                value={editWboxItemCode}
+                onChange={(event) => setEditWboxItemCode(event.target.value)}
+                placeholder='WBOX menukey'
+                style={{ width: '100%', padding: '0.7rem', borderRadius: '0.55rem', border: '1px solid #fed7aa', fontSize: '0.8rem' }}
+              />
+              <small style={{ color: '#78716c', fontSize: '0.65rem' }}>This must match the item menukey configured in WBOX.</small>
+            </div>
+
             {/* Action Buttons Footer */}
             <div style={{ display: 'flex', gap: '0.8rem', marginTop: '1rem', borderTop: '1px solid #f0e8e2', paddingTop: '1rem' }}>
               <button type="submit" className="admin-primary" style={{ flex: 1 }}>
@@ -721,6 +743,18 @@ export function OrdersPage() {
     } catch (reason) {
       setOrders((items) => (items ?? []).map((item) => item.id === order.id ? order : item))
       setError(reason instanceof Error ? reason.message : 'Update failed.')
+    }
+  }
+
+  const retryWbox = async (order: AdminOrder) => {
+    setError('')
+    try {
+      await retryWboxExport(token, order.id)
+      setOrders((items) => (items ?? []).map((item) => item.id === order.id
+        ? { ...item, wbox_status: 'pending', wbox_last_error: null }
+        : item))
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Unable to retry WBOX delivery.')
     }
   }
 
@@ -837,6 +871,16 @@ export function OrdersPage() {
                 </div>
               )
             })()}
+          </div>
+
+          <div className='order-detail__note'>
+            <strong>WBOX POS delivery</strong>
+            <p>Status: {selectedOrder.wbox_status ?? 'not queued'}</p>
+            {selectedOrder.wbox_request_filename && <p>Request: {selectedOrder.wbox_request_filename}</p>}
+            {(selectedOrder.wbox_response_message || selectedOrder.wbox_last_error) && <p>{selectedOrder.wbox_response_message || selectedOrder.wbox_last_error}</p>}
+            {(!selectedOrder.wbox_status || ['failed', 'rejected'].includes(selectedOrder.wbox_status)) && (
+              <button type='button' className='secondary-button' onClick={() => retryWbox(selectedOrder)}>Retry WBOX delivery</button>
+            )}
           </div>
 
           <label className="order-status-control">Fulfillment status<select value={selectedOrder.fulfillment_status} onChange={(event) => update(selectedOrder, event.target.value)}>{statuses.map((status) => <option key={status}>{status}</option>)}</select></label>

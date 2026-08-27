@@ -19,6 +19,7 @@ class AdminTerminalController extends Controller
             ->map(function (object $t): object {
                 $t->is_online = $t->last_heartbeat_at !== null
                     && now()->diffInSeconds($t->last_heartbeat_at) < 60;
+
                 return $t;
             });
 
@@ -32,6 +33,8 @@ class AdminTerminalController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'location' => ['nullable', 'string', 'max:255'],
             'service_mode' => ['nullable', 'string', 'in:both,dine-in,takeout'],
+            'store_id' => ['required', 'integer', 'exists:stores,id'],
+            'wbox_kiosk_number' => ['nullable', 'string', 'max:32', 'regex:/^[A-Z0-9][A-Z0-9_-]*$/i'],
         ]);
 
         if (DB::table('terminals')->where('id', $data['terminal_id'])->exists()) {
@@ -45,6 +48,8 @@ class AdminTerminalController extends Controller
             'name' => $data['name'],
             'location' => $data['location'] ?? null,
             'service_mode' => $data['service_mode'] ?? null,
+            'store_id' => $data['store_id'],
+            'wbox_kiosk_number' => $data['wbox_kiosk_number'] ?? $data['terminal_id'],
             'api_token' => hash('sha256', $plainToken),
             'status' => 'online',
             'created_at' => now(),

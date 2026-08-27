@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
@@ -13,6 +14,25 @@ class AdminSettingsController extends Controller
     public function show(): JsonResponse
     {
         return response()->json(['settings' => $this->settings()]);
+    }
+
+    public function publicShow(): JsonResponse
+    {
+        return response()->json(['settings' => DB::table('system_settings')->where('id', 1)->first([
+            'id',
+            'brand_name',
+            'tax_rate_basis_points',
+            'service_mode',
+            'currency',
+            'counter_payment_enabled',
+            'card_payment_enabled',
+            'idle_timeout_seconds',
+            'auto_reset_seconds',
+            'receipt_header',
+            'receipt_footer',
+            'created_at',
+            'updated_at',
+        ])]);
     }
 
     public function update(Request $request): JsonResponse
@@ -28,6 +48,18 @@ class AdminSettingsController extends Controller
             'auto_reset_seconds' => ['required', 'integer', 'min:5', 'max:300'],
             'receipt_header' => ['nullable', 'string', 'max:120'],
             'receipt_footer' => ['nullable', 'string', 'max:240'],
+            'wbox_enabled' => ['sometimes', 'boolean'],
+            'wbox_request_path' => ['sometimes', 'nullable', 'string', 'max:512'],
+            'wbox_response_path' => ['sometimes', 'nullable', 'string', 'max:512'],
+            'wbox_kiosk_number' => ['sometimes', 'required', 'string', 'max:32', 'regex:/^[A-Za-z0-9_-]+$/'],
+            'wbox_version' => ['sometimes', 'required', 'string', 'max:32'],
+            'wbox_pdaver' => ['sometimes', 'required', 'string', 'max:64'],
+            'wbox_server' => ['sometimes', 'required', 'string', 'max:32'],
+            'wbox_device' => ['sometimes', 'required', 'string', 'max:64'],
+            'wbox_product' => ['sometimes', 'required', 'string', 'max:32'],
+            'wbox_auth_token' => ['sometimes', 'nullable', 'string', 'max:2048'],
+            'wbox_response_filename' => ['sometimes', 'required', 'string', 'max:128', 'regex:~^[^\\\\/]+$~'],
+            'wbox_retry_seconds' => ['sometimes', 'required', 'integer', 'min:5', 'max:3600'],
         ]);
 
         if (! $data['counter_payment_enabled'] && ! $data['card_payment_enabled']) {
@@ -37,7 +69,29 @@ class AdminSettingsController extends Controller
             ], 422);
         }
 
+        $beforeRecord = DB::table('system_settings')->where('id', 1)->first();
         $before = $this->settings();
+        $effectiveWboxEnabled = (bool) ($data['wbox_enabled'] ?? $beforeRecord?->wbox_enabled ?? false);
+        $effectiveRequestPath = $data['wbox_request_path'] ?? $beforeRecord?->wbox_request_path;
+        $effectiveResponsePath = $data['wbox_response_path'] ?? $beforeRecord?->wbox_response_path;
+        $newToken = trim((string) ($data['wbox_auth_token'] ?? ''));
+        if ($effectiveWboxEnabled && (! filled($effectiveRequestPath) || ! filled($effectiveResponsePath))) {
+            return response()->json([
+                'message' => 'WBOX request and response folders are required when integration is enabled.',
+                'errors' => ['wbox_paths' => ['Configure both WBOX folders.']],
+            ], 422);
+        }
+        if ($effectiveWboxEnabled && $newToken === '' && ! filled($beforeRecord?->wbox_auth_token_encrypted)) {
+            return response()->json([
+                'message' => 'A WBOX authentication token is required when integration is enabled.',
+                'errors' => ['wbox_auth_token' => ['Enter the WBOX authentication token.']],
+            ], 422);
+        }
+
+        unset($data['wbox_auth_token']);
+        if ($newToken !== '') {
+            $data['wbox_auth_token_encrypted'] = Crypt::encryptString($newToken);
+        }
         DB::table('system_settings')->updateOrInsert(
             ['id' => 1],
             [...$data, 'updated_at' => now(), 'created_at' => $before?->created_at ?? now()],
@@ -48,7 +102,7 @@ class AdminSettingsController extends Controller
             'entity_type' => 'system_settings',
             'entity_id' => '1',
             'before' => $before ? json_encode($before) : null,
-            'after' => json_encode($data),
+            'after' => json_encode($this->auditSettings($data, $newToken !== '')),
             'created_at' => now(),
         ]);
 
@@ -57,6 +111,24 @@ class AdminSettingsController extends Controller
 
     private function settings(): ?object
     {
-        return DB::table('system_settings')->where('id', 1)->first();
+        $settings = DB::table('system_settings')->where('id', 1)->first();
+        if ($settings === null) {
+            return null;
+        }
+
+        $settings->wbox_auth_token_configured = filled($settings->wbox_auth_token_encrypted);
+        unset($settings->wbox_auth_token_encrypted);
+
+        return $settings;
+    }
+
+    private function auditSettings(array $data, bool $tokenChanged): array
+    {
+        unset($data['wbox_auth_token_encrypted']);
+        if ($tokenChanged) {
+            $data['wbox_auth_token'] = '[updated]';
+        }
+
+        return $data;
     }
 }

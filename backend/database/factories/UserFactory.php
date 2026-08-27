@@ -5,6 +5,7 @@ namespace Database\Factories;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
@@ -16,6 +17,14 @@ class UserFactory extends Factory
      * The current password being used by the factory.
      */
     protected static ?string $password;
+
+    public function configure(): static
+    {
+        return $this->afterCreating(function (User $user): void {
+            $storeId = DB::table('stores')->where('code', 'MAIN')->value('id');
+            if ($storeId) DB::table('store_user')->insertOrIgnore(['store_id' => $storeId, 'user_id' => $user->id, 'role' => 'store_admin', 'created_at' => now(), 'updated_at' => now()]);
+        });
+    }
 
     /**
      * Define the model's default state.
