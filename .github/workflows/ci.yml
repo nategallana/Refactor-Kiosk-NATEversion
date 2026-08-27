@@ -1,8 +1,8 @@
-﻿name: CI Pipeline
+name: CI Pipeline
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main, master, 'feature/**', 'integrate/**' ]
   pull_request:
     branches: [ main, master ]
 

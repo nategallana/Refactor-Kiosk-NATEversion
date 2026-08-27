@@ -74,12 +74,9 @@ export const useKioskStore = create<KioskState>()(persist((set, get) => ({
     })
 
     if (existingIndex >= 0) {
-      const updated = [...state.items]
-      const existing = updated[existingIndex]
-      updated[existingIndex] = {
-        ...existing,
-        quantity: existing.quantity + newItem.quantity,
-      }
+      const updated = state.items.map((item, idx) =>
+        idx === existingIndex ? { ...item, quantity: item.quantity + newItem.quantity } : item
+      )
       return { items: updated, checkoutAttempt: null }
     }
 

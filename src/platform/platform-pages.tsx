@@ -650,7 +650,7 @@ export function SecurityPage() {
         expiresAt: res.expires_at,
         originalToken: token,
       })
-      useAdminStore.getState().setSession(res.token, res.user)
+      useAdminStore.getState().signIn(res.token, res.user)
       alert(`Impersonation session active for ${res.user.name}.`)
     } catch (err: unknown) {
       if (err instanceof Error) alert(err.message)

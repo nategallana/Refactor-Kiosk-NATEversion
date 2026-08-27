@@ -1,4 +1,4 @@
-﻿import React, { useEffect, type ReactNode } from 'react'
+import React, { useEffect, type ReactNode } from 'react'
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { Brand } from '../components/brand'
 import { useAdminStore } from '../admin/admin-store'
@@ -134,8 +134,8 @@ export function PlatformLayout({ children }: { children: React.ReactNode }) {
       } catch {
         // cleanup locally
       }
-      if (impersonation.originalToken) {
-        useAdminStore.getState().setSession(impersonation.originalToken, user!)
+      if (impersonation.originalToken && user) {
+        useAdminStore.getState().signIn(impersonation.originalToken, user)
       }
       clearImpersonation()
       navigate('/platform/security')

@@ -31,6 +31,6 @@ describe('kiosk store', () => {
     useKioskStore.getState().addItem(item1)
     useKioskStore.getState().addItem(item2)
     expect(useKioskStore.getState().items).toHaveLength(1)
-    expect(useKioskStore.getState().items[0].quantity).toBe(3)
+    expect(useKioskStore.getState().items[0]?.quantity).toBe(3)
   })
 })
