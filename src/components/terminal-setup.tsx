@@ -8,6 +8,7 @@ export function TerminalSetup() {
 
   const [terminalId, setTerminalId] = useState('KIOSK-01')
   const [name, setName] = useState('Main Customer Terminal')
+  const [storeId, setStoreId] = useState('1')
   const [location, setLocation] = useState('Lobby')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -17,7 +18,7 @@ export function TerminalSetup() {
     setError('')
     setSubmitting(true)
     try {
-      await register(terminalId.trim(), name.trim(), location.trim())
+      await register(terminalId.trim(), name.trim(), Number(storeId), location.trim())
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed.')
     } finally {
@@ -54,6 +55,13 @@ export function TerminalSetup() {
         </p>
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+          <div>
+            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#a8a29e', marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Store ID
+            </label>
+            <input type='number' min='1' step='1' value={storeId} onChange={(e) => setStoreId(e.target.value)} placeholder='1' required style={inputStyle} />
+          </div>
+
           <div>
             <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#a8a29e', marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
               Terminal Identifier
@@ -104,7 +112,7 @@ export function TerminalSetup() {
 
           <button
             type="submit"
-            disabled={submitting || !terminalId.trim() || !name.trim()}
+            disabled={submitting || !terminalId.trim() || !name.trim() || !storeId || Number(storeId) < 1}
             style={{
               background: submitting ? '#57534e' : '#ea580c',
               color: '#ffffff', border: 'none', borderRadius: '0.5rem',
