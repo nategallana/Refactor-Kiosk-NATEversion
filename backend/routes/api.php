@@ -43,6 +43,12 @@ Route::prefix('v1')->group(function (): void {
         Route::put('/settings', [AdminSettingsController::class, 'update']);
         Route::get('/wbox/status', [AdminWboxController::class, 'status']);
 
+        // Session & Security Management
+        Route::get('/sessions', [AdminAuthController::class, 'sessions']);
+        Route::delete('/sessions/{sessionId}', [AdminAuthController::class, 'revokeSession']);
+        Route::delete('/sessions', [AdminAuthController::class, 'revokeAllSessions']);
+        Route::post('/password/change', [AdminAuthController::class, 'changePassword']);
+
         // Admin terminal management
         Route::get('/terminals', [AdminTerminalController::class, 'index']);
         Route::post('/terminals', [AdminTerminalController::class, 'store']);
@@ -57,6 +63,9 @@ Route::prefix('v1')->group(function (): void {
         Route::patch('/stores/{storeId}', [PlatformController::class, 'updateStore']);
         Route::get('/users', [PlatformController::class, 'users']);
         Route::patch('/users/{userId}', [PlatformController::class, 'updateUser']);
+        Route::get('/users/{userId}/sessions', [PlatformController::class, 'userSessions']);
+        Route::delete('/users/{userId}/sessions/{tokenId}', [PlatformController::class, 'revokeUserSession']);
+        Route::delete('/users/{userId}/sessions', [PlatformController::class, 'revokeAllUserSessions']);
         Route::get('/terminals', [PlatformController::class, 'terminals']);
         Route::get('/reports/sales', [PlatformController::class, 'report']);
         Route::get('/audit-logs', [PlatformController::class, 'auditLogs']);
