@@ -18,9 +18,11 @@ const categoryIconsByName: Record<string, { img?: string; emoji: string }> = {
 }
 
 function ProductArtwork({ product }: { product: Product }) {
-  return product.imageUrl
-    ? <img src={product.imageUrl} alt={product.name} />
-    : <span>{product.emoji}</span>
+  const [imgError, setImgError] = useState(false)
+  if (product.imageUrl && !imgError) {
+    return <img src={product.imageUrl} alt={product.name} onError={() => setImgError(true)} />
+  }
+  return <span style={{ fontSize: '2.5rem' }}>{product.emoji || '🍽️'}</span>
 }
 
 function ProductCard({ product }: { product: Product }) {
@@ -67,26 +69,55 @@ function ProductCard({ product }: { product: Product }) {
 export function MenuScreen() {
   const [catalog, setCatalog] = useState<Catalog | null>(null)
   const [error, setError] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [searchQuery, setSearchQuery] = useState('')
   const [params, setParams] = useSearchParams()
   const category = params.get('category') ?? 'all'
   const diningType = useKioskStore((state) => state.diningType)
 
-  useEffect(() => {
+  const loadCatalog = () => {
+    setError(false)
+    setLoading(true)
     const controller = new AbortController()
-    catalogRepository.getCatalog(controller.signal).then(setCatalog).catch((reason) => {
-      if (reason.name !== 'AbortError') setError(true)
-    })
+    catalogRepository
+      .getCatalog(controller.signal)
+      .then((data) => {
+        setCatalog(data)
+        setLoading(false)
+      })
+      .catch((reason) => {
+        if (reason?.name !== 'AbortError') {
+          setError(true)
+          setLoading(false)
+        }
+      })
     return () => controller.abort()
+  }
+
+  useEffect(() => {
+    return loadCatalog()
   }, [])
 
   const categories = useMemo(
     () => catalog?.categories.filter((item) => item.active).sort((a, b) => a.displayOrder - b.displayOrder) ?? [],
     [catalog],
   )
-  const products = useMemo(
-    () => catalog?.products.filter((product) => product.active && (category === 'all' || product.categoryId === category)) ?? [],
-    [catalog, category],
-  )
+
+  const products = useMemo(() => {
+    if (!catalog) return []
+    const query = searchQuery.trim().toLowerCase()
+    return catalog.products.filter((product) => {
+      if (!product.active) return false
+      const matchesCategory = category === 'all' || product.categoryId === category
+      const matchesSearch =
+        !query ||
+        product.name.toLowerCase().includes(query) ||
+        product.sku.toLowerCase().includes(query) ||
+        product.description.toLowerCase().includes(query)
+      return matchesCategory && matchesSearch
+    })
+  }, [catalog, category, searchQuery])
+
   const activeCategory = categories.find((item) => item.id === category)
   const heading = category === 'all' ? 'All Items' : (activeCategory?.name ?? 'Menu')
 
@@ -96,11 +127,35 @@ export function MenuScreen() {
         {/* Top Ad Promotional Banner */}
         <AdBanner />
 
-        {/* Category Header Bar */}
-        <div className="kiosk-header-bar">
+        {/* Category Header Bar & Search Filter */}
+        <div className="kiosk-header-bar" style={{ flexWrap: 'wrap', gap: '0.75rem' }}>
           <div className="kiosk-header-bar__title">
             <h2>{heading}</h2>
           </div>
+
+          {/* Touch-friendly Search Bar */}
+          <div style={{ display: 'flex', alignItems: 'center', background: '#fff', border: '1.5px solid #e2e8f0', borderRadius: '999px', padding: '0.35rem 0.85rem', flex: '1 1 200px', maxWidth: '320px' }}>
+            <span style={{ marginRight: '0.4rem', color: '#94a3b8', fontSize: '1rem' }} aria-hidden="true">🔍</span>
+            <input
+              type="text"
+              placeholder="Search items..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{ border: 'none', outline: 'none', background: 'transparent', width: '100%', fontSize: '0.95rem', fontWeight: 500 }}
+              aria-label="Search menu items"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#94a3b8', fontWeight: 'bold', padding: '0 0.2rem' }}
+                aria-label="Clear search"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+
           <div className="kiosk-header-bar__badge">
             <span>{diningType === 'takeout' ? 'Takeout' : 'Dine-In'}</span>
           </div>
@@ -139,9 +194,41 @@ export function MenuScreen() {
           </aside>
 
           <section className="kiosk-products-container">
-            {!catalog && !error && <div className="state-card">Preparing today&rsquo;s menu&hellip;</div>}
-            {error && <div className="state-card"><strong>We couldn&rsquo;t load the menu.</strong><span>Please ask a team member for help.</span></div>}
-            {catalog && products.length === 0 && <div className="state-card"><strong>No items in this category.</strong><span>Please choose another category.</span></div>}
+            {loading && !catalog && !error && (
+              <div className="state-card">
+                <p>Preparing today&rsquo;s menu&hellip;</p>
+              </div>
+            )}
+            {error && (
+              <div className="state-card" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', alignItems: 'center' }}>
+                <strong>We couldn&rsquo;t load the menu.</strong>
+                <span>Please check your network connection or ask a team member for help.</span>
+                <button
+                  type="button"
+                  className="primary-button"
+                  style={{ marginTop: '0.5rem', minHeight: '44px' }}
+                  onClick={loadCatalog}
+                >
+                  Retry loading menu
+                </button>
+              </div>
+            )}
+            {!loading && catalog && products.length === 0 && (
+              <div className="state-card">
+                <strong>No items found{searchQuery ? ` matching "${searchQuery}"` : ''}.</strong>
+                <span>{searchQuery ? 'Try a different search term or clear the filter.' : 'Please choose another category.'}</span>
+                {searchQuery && (
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    style={{ marginTop: '0.5rem' }}
+                    onClick={() => setSearchQuery('')}
+                  >
+                    Clear search
+                  </button>
+                )}
+              </div>
+            )}
             <div className="kiosk-products-grid">
               {products.map((product) => (
                 <ProductCard key={product.id} product={product} />
