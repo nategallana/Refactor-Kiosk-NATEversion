@@ -8,6 +8,8 @@ coverage
 *.local
 *.log
 .DS_Store
+Refactored-Kiosk/
+
 
 # Backend ignores
 /backend/vendor/
