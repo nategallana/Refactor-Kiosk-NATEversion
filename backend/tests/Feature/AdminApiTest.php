@@ -109,12 +109,67 @@ it('allows super admin to switch store context via X-Store-Id header', function 
 
     $superAdmin = User::factory()->create(['role' => 'super_admin']);
 
-    // Super Admin can access platform routes
-    $this->actingAs($superAdmin)->getJson('/api/v1/platform/stores')
-        ->assertOk();
-
     // Super Admin can access Store B context
     $this->actingAs($superAdmin)->withHeader('X-Store-Id', (string) $storeBId)
         ->getJson('/api/v1/admin/catalog')
         ->assertOk();
 });
+
+it('allows super admin to create, update, and manage stores and users', function () {
+    $this->seed();
+    $superAdmin = User::factory()->create(['role' => 'super_admin']);
+
+    // Create new store
+    $storeRes = $this->actingAs($superAdmin)->postJson('/api/v1/platform/stores', [
+        'name' => 'South Branch',
+        'code' => 'SOUTH',
+        'timezone' => 'Asia/Manila',
+    ])->assertCreated()->json('store');
+
+    expect($storeRes['name'])->toBe('South Branch');
+    $this->assertDatabaseHas('stores', ['code' => 'SOUTH']);
+
+    // Update store
+    $this->actingAs($superAdmin)->patchJson("/api/v1/platform/stores/{$storeRes['id']}", [
+        'name' => 'South Mall Branch',
+    ])->assertOk()->assertJsonPath('store.name', 'South Mall Branch');
+
+    // Create and assign a store admin
+    $user = User::factory()->create(['role' => 'store_admin']);
+    $this->actingAs($superAdmin)->patchJson("/api/v1/platform/users/{$user->id}", [
+        'store_id' => $storeRes['id'],
+    ])->assertOk();
+
+    $this->assertDatabaseHas('store_user', ['store_id' => $storeRes['id'], 'user_id' => $user->id]);
+});
+
+it('handles secure impersonation lifecycle for super admins', function () {
+    $this->seed();
+    $superAdmin = User::factory()->create(['role' => 'super_admin']);
+    $targetAdmin = User::factory()->create(['role' => 'store_admin']);
+    DB::table('store_user')->updateOrInsert(['store_id' => 1, 'user_id' => $targetAdmin->id], ['role' => 'store_admin', 'created_at' => now(), 'updated_at' => now()]);
+
+    // Impersonating another super admin fails
+    $otherSuperAdmin = User::factory()->create(['role' => 'super_admin']);
+    $this->actingAs($superAdmin)->postJson("/api/v1/platform/impersonation/{$otherSuperAdmin->id}", [
+        'store_id' => 1,
+        'reason' => 'Testing support access',
+    ])->assertUnprocessable();
+
+    // Valid impersonation creates session and token
+    $impersonateRes = $this->actingAs($superAdmin)->postJson("/api/v1/platform/impersonation/{$targetAdmin->id}", [
+        'store_id' => 1,
+        'reason' => 'Troubleshooting menu catalog for store 1',
+    ])->assertOk()->json();
+
+    expect($impersonateRes)->toHaveKeys(['session_id', 'token', 'expires_at', 'user']);
+    $this->assertDatabaseHas('audit_logs', ['actor_id' => $superAdmin->id, 'action' => 'impersonation.started']);
+
+    // End impersonation
+    $this->actingAs($superAdmin)->deleteJson("/api/v1/platform/impersonation/{$impersonateRes['session_id']}")
+        ->assertOk()
+        ->assertJsonPath('message', 'Impersonation session ended.');
+
+    $this->assertDatabaseHas('audit_logs', ['actor_id' => $superAdmin->id, 'action' => 'impersonation.ended']);
+});
+
