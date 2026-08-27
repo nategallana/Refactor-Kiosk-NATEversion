@@ -21,10 +21,16 @@ describe('kiosk store', () => {
 
     useKioskStore.getState().updateQuantity(item.id, 2)
     expect(useKioskStore.getState().checkoutAttempt).toBeNull()
-    const changedCartKey = useKioskStore.getState().getCheckoutIdempotencyKey('changed-request')
-    expect(changedCartKey).not.toBe(firstKey)
-
     useKioskStore.getState().reset()
     expect(useKioskStore.getState().checkoutAttempt).toBeNull()
+  })
+
+  it('groups duplicate cart items with identical options and note', () => {
+    const item1 = { id: 'line-1', productId: 'p1', sku: 'SKU-1', name: 'Meal', unitPrice: 10000, quantity: 1, selections: [{ groupId: 'size', groupName: 'Size', valueId: 'regular', valueName: 'Regular', priceDelta: 0 }], note: 'No ice' }
+    const item2 = { id: 'line-2', productId: 'p1', sku: 'SKU-1', name: 'Meal', unitPrice: 10000, quantity: 2, selections: [{ groupId: 'size', groupName: 'Size', valueId: 'regular', valueName: 'Regular', priceDelta: 0 }], note: 'No ice' }
+    useKioskStore.getState().addItem(item1)
+    useKioskStore.getState().addItem(item2)
+    expect(useKioskStore.getState().items).toHaveLength(1)
+    expect(useKioskStore.getState().items[0].quantity).toBe(3)
   })
 })

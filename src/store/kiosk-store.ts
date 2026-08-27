@@ -58,7 +58,33 @@ export const useKioskStore = create<KioskState>()(persist((set, get) => ({
     diningType,
     checkoutAttempt: state.diningType === diningType ? state.checkoutAttempt : null,
   })),
-  addItem: (item) => set((state) => ({ items: [...state.items, item], checkoutAttempt: null })),
+  addItem: (newItem) => set((state) => {
+    const existingIndex = state.items.findIndex((item) => {
+      if (item.productId !== newItem.productId || (item.note || '') !== (newItem.note || '')) {
+        return false
+      }
+      if (item.selections.length !== newItem.selections.length) {
+        return false
+      }
+      return item.selections.every((sel) => {
+        return newItem.selections.some(
+          (match) => match.groupId === sel.groupId && match.valueId === sel.valueId
+        )
+      })
+    })
+
+    if (existingIndex >= 0) {
+      const updated = [...state.items]
+      const existing = updated[existingIndex]
+      updated[existingIndex] = {
+        ...existing,
+        quantity: existing.quantity + newItem.quantity,
+      }
+      return { items: updated, checkoutAttempt: null }
+    }
+
+    return { items: [...state.items, newItem], checkoutAttempt: null }
+  }),
   updateQuantity: (id, quantity) => set((state) => ({
     items: quantity < 1 ? state.items.filter((item) => item.id !== id) : state.items.map((item) => item.id === id ? { ...item, quantity } : item),
     checkoutAttempt: null,
