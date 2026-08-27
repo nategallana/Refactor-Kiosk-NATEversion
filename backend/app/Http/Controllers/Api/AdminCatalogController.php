@@ -11,7 +11,8 @@ class AdminCatalogController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $storeId = (int) $request->attributes->get('store_id');
+        $terminal = $request->attributes->get('_terminal');
+        $storeId = (int) ($terminal?->store_id ?? $request->attributes->get('store_id'));
         $categories = DB::table('categories')->where('store_id', $storeId)->orderBy('display_order')->get();
 
         $products = DB::table('products')
@@ -32,7 +33,8 @@ class AdminCatalogController extends Controller
 
     public function availability(Request $request, int $product): JsonResponse
     {
-        $storeId = (int) $request->attributes->get('store_id');
+        $terminal = $request->attributes->get('_terminal');
+        $storeId = (int) ($terminal?->store_id ?? $request->attributes->get('store_id'));
         $data = $request->validate(['available' => ['required', 'boolean']]);
         $before = DB::table('products')->where('id', $product)->where('store_id', $storeId)->firstOrFail();
         DB::table('products')->where('id', $product)->where('store_id', $storeId)->update(['available' => $data['available'], 'updated_at' => now()]);
@@ -48,7 +50,8 @@ class AdminCatalogController extends Controller
 
     public function wboxMapping(Request $request, int $product): JsonResponse
     {
-        $storeId = (int) $request->attributes->get('store_id');
+        $terminal = $request->attributes->get('_terminal');
+        $storeId = (int) ($terminal?->store_id ?? $request->attributes->get('store_id'));
         $data = $request->validate([
             'wbox_item_code' => ['nullable', 'string', 'max:64', 'regex:/^[A-Za-z0-9._-]+$/'],
         ]);

@@ -25,7 +25,7 @@ Route::prefix('v1')->group(function (): void {
     });
 
     Route::get('/settings', [AdminSettingsController::class, 'publicShow']);
-    Route::get('/catalog', [AdminCatalogController::class, 'index']);
+    Route::get('/catalog', [AdminCatalogController::class, 'index'])->middleware(AuthenticateTerminal::class);
     Route::post('/orders', [OrderController::class, 'store']);
     Route::post('/payments/webhook/{provider}', [PaymentWebhookController::class, 'handle']);
     Route::post('/admin/auth/login', [AdminAuthController::class, 'login'])->middleware('throttle:10,1');
