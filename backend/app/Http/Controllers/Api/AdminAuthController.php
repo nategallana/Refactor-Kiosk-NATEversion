@@ -23,7 +23,7 @@ class AdminAuthController extends Controller
         $user->tokens()->where('name', 'admin-dashboard')->delete();
 
         return response()->json([
-            'token' => $user->createToken('admin-dashboard', ['admin'])->plainTextToken,
+            'token' => $user->createToken('admin-dashboard', ['admin'], now()->addMinutes(30))->plainTextToken,
             'user' => $user->only(['id', 'name', 'email', 'role']),
         ]);
     }

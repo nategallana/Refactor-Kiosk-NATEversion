@@ -13,7 +13,11 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->alias(['super_admin' => \App\Http\Middleware\RequireSuperAdmin::class, 'store.context' => \App\Http\Middleware\ResolveStoreContext::class]);
+        $middleware->alias([
+            'super_admin' => \App\Http\Middleware\RequireSuperAdmin::class,
+            'store.context' => \App\Http\Middleware\ResolveStoreContext::class,
+            'session.security' => \App\Http\Middleware\EnforceSessionSecurity::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

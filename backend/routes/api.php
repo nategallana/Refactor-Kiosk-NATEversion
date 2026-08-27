@@ -29,7 +29,7 @@ Route::prefix('v1')->group(function (): void {
     Route::post('/orders', [OrderController::class, 'store']);
     Route::post('/payments/webhook/{provider}', [PaymentWebhookController::class, 'handle']);
     Route::post('/admin/auth/login', [AdminAuthController::class, 'login'])->middleware('throttle:10,1');
-    Route::middleware(['auth:sanctum', 'store.context'])->prefix('admin')->group(function (): void {
+    Route::middleware(['auth:sanctum', 'session.security', 'store.context'])->prefix('admin')->group(function (): void {
         Route::get('/auth/me', [AdminAuthController::class, 'me']);
         Route::post('/auth/logout', [AdminAuthController::class, 'logout']);
         Route::get('/dashboard', AdminDashboardController::class);
@@ -51,7 +51,7 @@ Route::prefix('v1')->group(function (): void {
         Route::post('/terminals/{terminalId}/command', [AdminTerminalController::class, 'command']);
     });
 
-    Route::middleware(['auth:sanctum', 'super_admin'])->prefix('platform')->group(function (): void {
+    Route::middleware(['auth:sanctum', 'session.security', 'super_admin'])->prefix('platform')->group(function (): void {
         Route::get('/stores', [PlatformController::class, 'stores']);
         Route::post('/stores', [PlatformController::class, 'createStore']);
         Route::patch('/stores/{storeId}', [PlatformController::class, 'updateStore']);
