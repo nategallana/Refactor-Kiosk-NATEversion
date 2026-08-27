@@ -24,7 +24,7 @@ class DatabaseSeeder extends Seeder
 
         $admin = User::query()->updateOrCreate(
             ['email' => 'admin@kiosk.local'],
-            ['name' => 'Kiosk Administrator', 'password' => Hash::make('Admin123!'), 'role' => 'super_admin'],
+            ['name' => 'Store Manager', 'password' => Hash::make('Admin123!'), 'role' => 'store_admin'],
         );
 
         DB::table('store_user')->updateOrInsert(
