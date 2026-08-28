@@ -19,10 +19,12 @@ class OrderController extends Controller
 {
     public function store(Request $request): JsonResponse
     {
+        $terminal = $request->attributes->get('_terminal');
+        abort_if($terminal === null, 401, 'Terminal authentication required.');
+        $storeId = (int) $terminal->store_id;
         $request->merge(['idempotency_key' => $request->header('Idempotency-Key')]);
         $data = $request->validate([
             'idempotency_key' => ['required', 'uuid'],
-            'terminal_id' => ['nullable', 'string', 'max:64'],
             'dining_type' => ['required', Rule::in(['dine-in', 'takeout'])],
             'payment_method' => ['required', Rule::in(['counter', 'card'])],
             'items' => ['required', 'array', 'min:1', 'max:50'],
@@ -33,6 +35,9 @@ class OrderController extends Controller
             'items.*.selections.*.groupId' => ['required', 'string', 'max:64'],
             'items.*.selections.*.valueId' => ['required', 'string', 'max:64'],
         ]);
+
+        $data['terminal_id'] = (string) $terminal->id;
+        $data['store_id'] = $storeId;
 
         $idempotencyKey = $data['idempotency_key'];
         unset($data['idempotency_key']);
@@ -60,7 +65,7 @@ class OrderController extends Controller
                 }
 
                 $skus = collect($data['items'])->pluck('sku')->unique()->values();
-                $products = DB::table('products')->whereIn('sku', $skus)->lockForUpdate()->get()->keyBy('sku');
+                $products = DB::table('products')->where('store_id', $data['store_id'])->whereIn('sku', $skus)->lockForUpdate()->get()->keyBy('sku');
                 [$canonicalItems, $subtotalMinor] = $this->priceItems($data['items'], $products);
 
                 $taxRateBasisPoints = (int) $settings->tax_rate_basis_points;
@@ -70,6 +75,7 @@ class OrderController extends Controller
 
                 $orderId = DB::table('orders')->insertGetId([
                     'order_number' => 'pending-'.Str::uuid(),
+                    'store_id' => $data['store_id'],
                     'idempotency_key' => $idempotencyKey,
                     'request_fingerprint' => $requestFingerprint,
                     'terminal_id' => $data['terminal_id'] ?? 'KIOSK-01',

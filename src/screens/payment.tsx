@@ -46,7 +46,6 @@ export function PaymentScreen() {
   const setReceipt = useKioskStore((state) => state.setReceipt)
   const settings = useKioskStore((state) => state.settings)
   
-  const terminalId = useTerminalStore((s) => s.terminalId)
   const apiToken = useTerminalStore((s) => s.apiToken)
 
   const cardEnabled = settings?.card_payment_enabled ?? true
@@ -77,7 +76,6 @@ export function PaymentScreen() {
 
     const apiBase = import.meta.env.VITE_API_BASE_URL || `${window.location.protocol}//${window.location.hostname}:8000/api/v1`
     const orderRequest = {
-      terminal_id: terminalId,
       dining_type: diningType,
       payment_method: method,
       items: items.map((i) => ({
@@ -186,7 +184,7 @@ export function PaymentScreen() {
           disabled={!method || status === 'processing'}
           onClick={handlePlaceOrderClick}
         >
-          {status === 'processing' ? 'Creating your order…' : 'Place order'} <span>&rarr;</span>
+          {status === 'processing' ? 'Creating your orderÃ¢â‚¬Â¦' : 'Place order'} <span>&rarr;</span>
         </button>
 
         <p className="secure-note">

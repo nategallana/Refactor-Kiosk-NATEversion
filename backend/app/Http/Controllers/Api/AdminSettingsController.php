@@ -20,7 +20,8 @@ class AdminSettingsController extends Controller
 
     public function publicShow(Request $request): JsonResponse
     {
-        $storeId = (int) ($request->attributes->get('store_id') ?: 1);
+        $terminal = $request->attributes->get('_terminal');
+        $storeId = (int) ($terminal?->store_id ?? $request->attributes->get('store_id') ?? 1);
 
         return response()->json(['settings' => DB::table('system_settings')->where('store_id', $storeId)->first([
             'id',

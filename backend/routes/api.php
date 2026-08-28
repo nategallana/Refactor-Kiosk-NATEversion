@@ -24,9 +24,9 @@ Route::prefix('v1')->group(function (): void {
         Route::get('/terminals/config', [TerminalController::class, 'config']);
     });
 
-    Route::get('/settings', [AdminSettingsController::class, 'publicShow']);
+    Route::get('/settings', [AdminSettingsController::class, 'publicShow'])->middleware(AuthenticateTerminal::class);
     Route::get('/catalog', [AdminCatalogController::class, 'index'])->middleware(AuthenticateTerminal::class);
-    Route::post('/orders', [OrderController::class, 'store']);
+    Route::post('/orders', [OrderController::class, 'store'])->middleware(AuthenticateTerminal::class);
     Route::post('/payments/webhook/{provider}', [PaymentWebhookController::class, 'handle']);
     Route::post('/admin/auth/login', [AdminAuthController::class, 'login'])->middleware('throttle:login');
     Route::middleware(['auth:sanctum', 'session.security', 'store.context'])->prefix('admin')->group(function (): void {
