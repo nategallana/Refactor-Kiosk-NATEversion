@@ -11,6 +11,7 @@ uses(RefreshDatabase::class);
 
 beforeEach(function () {
     $this->seed();
+    $this->withToken('dev-kiosk-token-01');
     $this->wboxRoot = storage_path('framework/testing/wbox-'.Str::uuid());
     $this->wboxRequestPath = $this->wboxRoot.DIRECTORY_SEPARATOR.'Request';
     $this->wboxResponsePath = $this->wboxRoot.DIRECTORY_SEPARATOR.'Response';
@@ -164,7 +165,7 @@ it('routes exports independently for two terminals in the same store', function 
 
     $payload2 = wboxOrderPayload();
     $payload2['terminal_id'] = 'KIOSK-02';
-    $order2 = $this->postJson('/api/v1/orders', $payload2, ['Idempotency-Key' => (string) Str::uuid()])
+    $order2 = $this->withToken('token-2')->postJson('/api/v1/orders', $payload2, ['Idempotency-Key' => (string) Str::uuid()])
         ->assertCreated()->json('order');
 
     // First run exports order 1 (K01)
