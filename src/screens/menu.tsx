@@ -22,7 +22,7 @@ function ProductArtwork({ product }: { product: Product }) {
   if (product.imageUrl && !imgError) {
     return <img src={product.imageUrl} alt={product.name} onError={() => setImgError(true)} />
   }
-  return <span style={{ fontSize: '2.5rem' }}>{product.emoji || '🍽️'}</span>
+  return <span style={{ fontSize: '2.5rem' }}>{product.emoji || 'ðŸ½ï¸'}</span>
 }
 
 function ProductCard({ product }: { product: Product }) {
@@ -68,7 +68,7 @@ function ProductCard({ product }: { product: Product }) {
 
 export function MenuScreen() {
   const [catalog, setCatalog] = useState<Catalog | null>(null)
-  const [error, setError] = useState(false)
+  const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [params, setParams] = useSearchParams()
@@ -76,7 +76,7 @@ export function MenuScreen() {
   const diningType = useKioskStore((state) => state.diningType)
 
   const loadCatalog = () => {
-    setError(false)
+    setError('')
     setLoading(true)
     const controller = new AbortController()
     catalogRepository
@@ -87,7 +87,7 @@ export function MenuScreen() {
       })
       .catch((reason) => {
         if (reason?.name !== 'AbortError') {
-          setError(true)
+          setError(reason instanceof Error ? reason.message : 'We could not load the menu. Please try again.')
           setLoading(false)
         }
       })
@@ -135,7 +135,7 @@ export function MenuScreen() {
 
           {/* Touch-friendly Search Bar */}
           <div style={{ display: 'flex', alignItems: 'center', background: '#fff', border: '1.5px solid #e2e8f0', borderRadius: '999px', padding: '0.35rem 0.85rem', flex: '1 1 200px', maxWidth: '320px' }}>
-            <span style={{ marginRight: '0.4rem', color: '#94a3b8', fontSize: '1rem' }} aria-hidden="true">🔍</span>
+            <span style={{ marginRight: '0.4rem', color: '#94a3b8', fontSize: '1rem' }} aria-hidden="true">ðŸ”</span>
             <input
               type="text"
               placeholder="Search items..."
@@ -151,7 +151,7 @@ export function MenuScreen() {
                 style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#94a3b8', fontWeight: 'bold', padding: '0 0.2rem' }}
                 aria-label="Clear search"
               >
-                ✕
+                âœ•
               </button>
             )}
           </div>
@@ -170,7 +170,7 @@ export function MenuScreen() {
                 onClick={() => setParams({ category: 'all' })}
               >
                 <div className="kiosk-sidebar__thumb">
-                  <span>☰</span>
+                  <span>â˜°</span>
                 </div>
                 <span className="kiosk-sidebar__label">All Items</span>
               </button>
@@ -184,7 +184,7 @@ export function MenuScreen() {
                     onClick={() => setParams({ category: item.id })}
                   >
                     <div className="kiosk-sidebar__thumb">
-                      {meta?.img ? <img src={meta.img} alt="" /> : <span>{meta?.emoji ?? '•'}</span>}
+                      {meta?.img ? <img src={meta.img} alt="" /> : <span>{meta?.emoji ?? 'â€¢'}</span>}
                     </div>
                     <span className="kiosk-sidebar__label">{item.name}</span>
                   </button>
@@ -201,7 +201,7 @@ export function MenuScreen() {
             )}
             {error && (
               <div className="state-card" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', alignItems: 'center' }}>
-                <strong>We couldn&rsquo;t load the menu.</strong>
+                <strong>{error}</strong>
                 <span>Please check your network connection or ask a team member for help.</span>
                 <button
                   type="button"
