@@ -145,4 +145,26 @@ class AdminTerminalController extends Controller
 
         return response()->json(['message' => "Command '{$data['command']}' sent to {$terminalId}."]);
     }
+    public function createActivationCode(Request $request): JsonResponse
+    {
+        $storeId = (int) $request->attributes->get('store_id');
+        $data = $request->validate([
+            'terminal_id' => ['nullable', 'string', 'max:64', 'exists:terminals,id'],
+            'expires_in_minutes' => ['nullable', 'integer', 'min:5', 'max:1440'],
+        ]);
+        if (! empty($data['terminal_id']) && ! DB::table('terminals')->where('id', $data['terminal_id'])->where('store_id', $storeId)->exists()) {
+            return response()->json(['message' => 'That terminal does not belong to this store.'], 422);
+        }
+        do {
+            $code = strtoupper(Str::random(8));
+        } while (DB::table('terminal_activation_codes')->where('code_hash', hash('sha256', $code))->exists());
+        $expiresAt = now()->addMinutes((int) ($data['expires_in_minutes'] ?? 30));
+        DB::table('terminal_activation_codes')->insert([
+            'store_id' => $storeId, 'terminal_id' => $data['terminal_id'] ?? null,
+            'code_hash' => hash('sha256', $code), 'code_hint' => substr($code, -4),
+            'created_by' => $request->user()->id, 'expires_at' => $expiresAt,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        return response()->json(['activation_code' => $code, 'expires_at' => $expiresAt->toISOString()]);
+    }
 }

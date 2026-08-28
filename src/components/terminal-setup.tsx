@@ -6,9 +6,8 @@ export function TerminalSetup() {
   const register = useTerminalStore((s) => s.register)
   const brandName = useKioskStore((s) => s.settings.brand_name)
 
-  const [terminalId, setTerminalId] = useState('KIOSK-01')
+  const [activationCode, setActivationCode] = useState('')
   const [name, setName] = useState('Main Customer Terminal')
-  const [storeId, setStoreId] = useState('1')
   const [location, setLocation] = useState('Lobby')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -18,7 +17,7 @@ export function TerminalSetup() {
     setError('')
     setSubmitting(true)
     try {
-      await register(terminalId.trim(), name.trim(), Number(storeId), location.trim())
+      await register(activationCode, name.trim(), location.trim())
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed.')
     } finally {
@@ -57,19 +56,12 @@ export function TerminalSetup() {
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
           <div>
             <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#a8a29e', marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              Store ID
-            </label>
-            <input type='number' min='1' step='1' value={storeId} onChange={(e) => setStoreId(e.target.value)} placeholder='1' required style={inputStyle} />
-          </div>
-
-          <div>
-            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#a8a29e', marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              Terminal Identifier
+              Activation Code
             </label>
             <input
-              value={terminalId}
-              onChange={(e) => setTerminalId(e.target.value.toUpperCase())}
-              placeholder="KIOSK-01"
+              value={activationCode}
+              onChange={(e) => setActivationCode(e.target.value.toUpperCase())}
+              placeholder="AB12CD34"
               required
               style={inputStyle}
             />
@@ -112,7 +104,7 @@ export function TerminalSetup() {
 
           <button
             type="submit"
-            disabled={submitting || !terminalId.trim() || !name.trim() || !storeId || Number(storeId) < 1}
+            disabled={submitting || activationCode.trim().length !== 8 || !name.trim()}
             style={{
               background: submitting ? '#57534e' : '#ea580c',
               color: '#ffffff', border: 'none', borderRadius: '0.5rem',

@@ -10,7 +10,7 @@ export interface TerminalState {
   status: 'online' | 'maintenance' | 'offline'
   lastHeartbeat: string | null
 
-  register: (terminalId: string, name: string, storeId: number, location?: string) => Promise<void>
+  register: (activationCode: string, name: string, location?: string) => Promise<void>
   sendHeartbeat: (appVersion?: string) => Promise<void>
   clearRegistration: () => void
 }
@@ -24,11 +24,11 @@ export const useTerminalStore = create<TerminalState>()(
       status: 'offline',
       lastHeartbeat: null,
 
-      register: async (terminalId, name, storeId, location) => {
+      register: async (activationCode, name, location) => {
         const response = await fetch(`${apiBase}/terminals/register`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-          body: JSON.stringify({ terminal_id: terminalId, name, store_id: storeId, location: location || null }),
+          body: JSON.stringify({ activation_code: activationCode.trim().toUpperCase(), name, location: location || null }),
         })
         if (!response.ok) {
           const body = await response.json().catch(() => ({ message: 'Registration failed.' }))

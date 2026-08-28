@@ -52,6 +52,7 @@ Route::prefix('v1')->group(function (): void {
         // Admin terminal management
         Route::get('/terminals', [AdminTerminalController::class, 'index']);
         Route::post('/terminals', [AdminTerminalController::class, 'store'])->middleware('throttle:terminal_registration');
+        Route::post('/terminal-activation-codes', [AdminTerminalController::class, 'createActivationCode'])->middleware('throttle:terminal_registration');
         Route::patch('/terminals/{terminalId}', [AdminTerminalController::class, 'update']);
         Route::delete('/terminals/{terminalId}', [AdminTerminalController::class, 'destroy']);
         Route::post('/terminals/{terminalId}/command', [AdminTerminalController::class, 'command']);
