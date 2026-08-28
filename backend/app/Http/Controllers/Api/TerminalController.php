@@ -17,53 +17,29 @@ class TerminalController extends Controller
     public function register(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'terminal_id' => ['required', 'string', 'max:64', 'regex:/^[A-Z0-9][A-Z0-9\-]{0,63}$/i'],
-            'name' => ['required', 'string', 'max:255'],
+            'activation_code' => ['required', 'string', 'size:8', 'regex:/^[A-Z0-9]+$/i'],
+            'name' => ['nullable', 'string', 'max:255'],
             'location' => ['nullable', 'string', 'max:255'],
-            'store_id' => ['required', 'integer', 'exists:stores,id'],
-            'wbox_kiosk_number' => ['nullable', 'string', 'max:32', 'regex:/^[A-Z0-9][A-Z0-9_-]*$/i'],
         ]);
-
+        $codeHash = hash('sha256', strtoupper($data['activation_code']));
         $plainToken = Str::random(64);
-
-        if (DB::table('terminals')->where('id', $data['terminal_id'])->exists()) {
-            DB::table('terminals')->where('id', $data['terminal_id'])->update([
-                'name' => $data['name'],
-                'location' => $data['location'] ?? null,
-                'store_id' => $data['store_id'],
-                'wbox_kiosk_number' => $data['wbox_kiosk_number'] ?? $data['terminal_id'],
-                'api_token' => hash('sha256', $plainToken),
-                'status' => 'online',
-                'updated_at' => now(),
+        $result = DB::transaction(function () use ($codeHash, $data, $plainToken): array {
+            $activation = DB::table('terminal_activation_codes')->where('code_hash', $codeHash)->lockForUpdate()->first();
+            if ($activation === null) abort(422, 'The activation code is invalid.');
+            if ($activation->used_at !== null) abort(422, 'The activation code has already been used.');
+            if (now()->greaterThan($activation->expires_at)) abort(422, 'The activation code has expired.');
+            $terminalId = $activation->terminal_id ?: 'KIOSK-'.strtoupper(Str::random(6));
+            if (DB::table('terminals')->where('id', $terminalId)->exists()) abort(409, 'This terminal is already registered. Ask the Store Admin for a new code.');
+            DB::table('terminals')->insert([
+                'id' => $terminalId, 'name' => $data['name'] ?? $terminalId, 'location' => $data['location'] ?? null,
+                'store_id' => $activation->store_id, 'wbox_kiosk_number' => $terminalId,
+                'api_token' => hash('sha256', $plainToken), 'status' => 'online', 'created_at' => now(), 'updated_at' => now(),
             ]);
-
-            return response()->json([
-                'terminal_id' => $data['terminal_id'],
-                'api_token' => $plainToken,
-                'message' => 'Terminal registered successfully.',
-            ], 200);
-        }
-
-        DB::table('terminals')->insert([
-            'id' => $data['terminal_id'],
-            'name' => $data['name'],
-            'location' => $data['location'] ?? null,
-            'store_id' => $data['store_id'],
-            'wbox_kiosk_number' => $data['wbox_kiosk_number'] ?? $data['terminal_id'],
-            'api_token' => hash('sha256', $plainToken),
-            'status' => 'online',
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-
-        return response()->json([
-            'terminal_id' => $data['terminal_id'],
-            'api_token' => $plainToken,
-            'message' => 'Terminal registered. Store the API token securely — it will not be shown again.',
-        ], 201);
-    }
-
-    /**
+            DB::table('terminal_activation_codes')->where('id', $activation->id)->update(['used_at' => now(), 'updated_at' => now()]);
+            return [$terminalId, $activation->store_id];
+        });
+        return response()->json(['terminal_id' => $result[0], 'store_id' => $result[1], 'api_token' => $plainToken, 'message' => 'Terminal activated successfully.'], 201);
+    }    /**
      * Heartbeat ping from an authenticated terminal.
      */
     public function heartbeat(Request $request): JsonResponse

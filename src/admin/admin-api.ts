@@ -127,6 +127,16 @@ export async function getTerminals(token: string) {
   return res.json()
 }
 
+export async function createActivationCode(token: string, terminalId?: string) {
+  const res = await fetch(`${apiBase}/admin/terminal-activation-codes`, {
+    method: 'POST',
+    headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ terminal_id: terminalId || null, expires_in_minutes: 30 }),
+  })
+  const payload = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(payload.message || 'Failed to create activation code')
+  return payload as { activation_code: string; expires_at: string }
+}
 export async function createTerminal(token: string, data: { terminal_id: string; name: string; location?: string; service_mode?: string }) {
   const res = await fetch(`${apiBase}/admin/terminals`, {
     method: 'POST',

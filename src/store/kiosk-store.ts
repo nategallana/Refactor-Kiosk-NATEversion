@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { useTerminalStore } from './terminal-store'
 import { persist } from 'zustand/middleware'
 import type { CartItem, DiningType, OrderReceipt } from '../domain/order'
 
@@ -100,7 +101,8 @@ export const useKioskStore = create<KioskState>()(persist((set, get) => ({
   setSettings: (settings) => set({ settings }),
   fetchSettings: async () => {
     try {
-      const res = await fetch(`${apiBase}/settings`, { headers: { Accept: 'application/json' } })
+      const apiToken = useTerminalStore.getState().apiToken
+      const res = await fetch(`${apiBase}/settings`, { headers: { Accept: 'application/json', ...(apiToken ? { Authorization: `Bearer ${apiToken}` } : {}) } })
       if (res.ok) {
         const data = await res.json()
         if (data?.settings) {

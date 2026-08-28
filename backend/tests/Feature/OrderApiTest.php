@@ -9,6 +9,7 @@ uses(RefreshDatabase::class);
 
 beforeEach(function () {
     $this->seed();
+    $this->withToken('dev-kiosk-token-01');
 });
 
 function validOrderPayload(array $overrides = []): array

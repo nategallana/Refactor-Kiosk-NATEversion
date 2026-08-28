@@ -20,8 +20,9 @@ export function App() {
   const terminalStatus = useTerminalStore((s) => s.status)
 
   useEffect(() => {
-    fetchSettings()
-  }, [fetchSettings])
+    if (!registered) return
+    void fetchSettings()
+  }, [fetchSettings, registered])
 
   useHeartbeat()
 

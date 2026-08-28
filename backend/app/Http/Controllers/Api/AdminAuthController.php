@@ -4,9 +4,9 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\SecurityAuditService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -18,10 +18,23 @@ class AdminAuthController extends Controller
     {
         $credentials = $request->validate(['email' => ['required', 'email'], 'password' => ['required', 'string']]);
         $user = User::query()->where('email', $credentials['email'])->first();
+
         if (! $user || ! Hash::check($credentials['password'], $user->password)) {
+            SecurityAuditService::log('auth.login.failed', 'user', $user ? (string) $user->id : '0', $user?->id, null, [
+                'email' => $credentials['email'],
+                'ip_address' => $request->ip(),
+            ]);
+
             return response()->json(['message' => 'The email or password is incorrect.'], 422);
         }
+
         if (! in_array($user->role, ['store_admin', 'super_admin'], true)) {
+            SecurityAuditService::log('auth.login.failed', 'user', (string) $user->id, $user->id, null, [
+                'email' => $credentials['email'],
+                'reason' => 'insufficient_role',
+                'ip_address' => $request->ip(),
+            ]);
+
             return response()->json(['message' => 'This account cannot access the admin dashboard.'], 403);
         }
 
@@ -33,6 +46,16 @@ class AdminAuthController extends Controller
         ])->save();
 
         Cache::put("token_activity:{$tokenObj->accessToken->id}", now()->toIso8601String(), now()->addHours(9));
+
+        SecurityAuditService::log('auth.login.success', 'user', (string) $user->id, $user->id, null, [
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+        ]);
+
+        SecurityAuditService::log('session.created', 'session', (string) $tokenObj->accessToken->id, $user->id, null, [
+            'ip_address' => $request->ip(),
+            'session_name' => 'admin-dashboard',
+        ]);
 
         return response()->json([
             'token' => $tokenObj->plainTextToken,
@@ -79,6 +102,10 @@ class AdminAuthController extends Controller
         Cache::forget("token_activity:{$token->id}");
         $token->delete();
 
+        SecurityAuditService::log('session.revoked', 'session', (string) $sessionId, $request->user()->id, null, [
+            'session_id' => $sessionId,
+        ]);
+
         return response()->json(['message' => 'Session revoked.']);
     }
 
@@ -89,6 +116,10 @@ class AdminAuthController extends Controller
             Cache::forget("token_activity:{$token->id}");
             $token->delete();
         }
+
+        SecurityAuditService::log('session.revoked', 'session', 'all', $request->user()->id, null, [
+            'scope' => 'all_sessions',
+        ]);
 
         return response()->json(['message' => 'All active sessions revoked.']);
     }
@@ -124,6 +155,11 @@ class AdminAuthController extends Controller
 
         Cache::put("token_activity:{$newToken->accessToken->id}", now()->toIso8601String(), now()->addHours(9));
 
+        SecurityAuditService::log('session.revoked', 'session', 'all', $user->id, null, ['reason' => 'password_change']);
+        SecurityAuditService::log('session.created', 'session', (string) $newToken->accessToken->id, $user->id, null, [
+            'reason' => 'password_change_reissued',
+        ]);
+
         return response()->json([
             'message' => 'Password updated successfully. All other sessions have been logged out.',
             'token' => $newToken->plainTextToken,
@@ -136,6 +172,10 @@ class AdminAuthController extends Controller
         if ($token) {
             Cache::forget("token_activity:{$token->id}");
             $token->delete();
+
+            SecurityAuditService::log('session.revoked', 'session', (string) $token->id, $request->user()->id, null, [
+                'reason' => 'user_logout',
+            ]);
         }
 
         return response()->json(['message' => 'Signed out.']);

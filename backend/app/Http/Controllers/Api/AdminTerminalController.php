@@ -58,14 +58,10 @@ class AdminTerminalController extends Controller
             'updated_at' => now(),
         ]);
 
-        DB::table('audit_logs')->insert([
-            'actor_id' => $request->user()->id,
-            'action' => 'terminal.created',
-            'entity_type' => 'terminal',
-            'entity_id' => $data['terminal_id'],
-            'before' => null,
-            'after' => json_encode(['name' => $data['name'], 'location' => $data['location'] ?? null]),
-            'created_at' => now(),
+        \App\Services\SecurityAuditService::log('terminal.registered', 'terminal', $data['terminal_id'], $request->user()->id, null, [
+            'name' => $data['name'],
+            'location' => $data['location'] ?? null,
+            'store_id' => $storeId,
         ]);
 
         return response()->json([
@@ -95,15 +91,7 @@ class AdminTerminalController extends Controller
 
         DB::table('terminals')->where('id', $terminalId)->where('store_id', $storeId)->update(array_merge($data, ['updated_at' => now()]));
 
-        DB::table('audit_logs')->insert([
-            'actor_id' => $request->user()->id,
-            'action' => 'terminal.updated',
-            'entity_type' => 'terminal',
-            'entity_id' => $terminalId,
-            'before' => json_encode(array_intersect_key($before, $data)),
-            'after' => json_encode($data),
-            'created_at' => now(),
-        ]);
+        \App\Services\SecurityAuditService::log('terminal.updated', 'terminal', $terminalId, $request->user()->id, array_intersect_key($before, $data), $data);
 
         return response()->json(['terminal' => DB::table('terminals')->where('id', $terminalId)->where('store_id', $storeId)->first()]);
     }
@@ -121,15 +109,7 @@ class AdminTerminalController extends Controller
             'updated_at' => now(),
         ]);
 
-        DB::table('audit_logs')->insert([
-            'actor_id' => $request->user()->id,
-            'action' => 'terminal.decommissioned',
-            'entity_type' => 'terminal',
-            'entity_id' => $terminalId,
-            'before' => json_encode(['status' => $terminal->status]),
-            'after' => json_encode(['status' => 'decommissioned']),
-            'created_at' => now(),
-        ]);
+        \App\Services\SecurityAuditService::log('terminal.revoked', 'terminal', $terminalId, $request->user()->id, ['status' => $terminal->status], ['status' => 'decommissioned']);
 
         return response()->json(['message' => 'Terminal decommissioned.']);
     }
@@ -164,5 +144,27 @@ class AdminTerminalController extends Controller
         ]);
 
         return response()->json(['message' => "Command '{$data['command']}' sent to {$terminalId}."]);
+    }
+    public function createActivationCode(Request $request): JsonResponse
+    {
+        $storeId = (int) $request->attributes->get('store_id');
+        $data = $request->validate([
+            'terminal_id' => ['nullable', 'string', 'max:64', 'exists:terminals,id'],
+            'expires_in_minutes' => ['nullable', 'integer', 'min:5', 'max:1440'],
+        ]);
+        if (! empty($data['terminal_id']) && ! DB::table('terminals')->where('id', $data['terminal_id'])->where('store_id', $storeId)->exists()) {
+            return response()->json(['message' => 'That terminal does not belong to this store.'], 422);
+        }
+        do {
+            $code = strtoupper(Str::random(8));
+        } while (DB::table('terminal_activation_codes')->where('code_hash', hash('sha256', $code))->exists());
+        $expiresAt = now()->addMinutes((int) ($data['expires_in_minutes'] ?? 30));
+        DB::table('terminal_activation_codes')->insert([
+            'store_id' => $storeId, 'terminal_id' => $data['terminal_id'] ?? null,
+            'code_hash' => hash('sha256', $code), 'code_hint' => substr($code, -4),
+            'created_by' => $request->user()->id, 'expires_at' => $expiresAt,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        return response()->json(['activation_code' => $code, 'expires_at' => $expiresAt->toISOString()]);
     }
 }

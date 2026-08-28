@@ -32,7 +32,7 @@ class PlatformController extends Controller
             'created_at' => now(),
             'updated_at' => now(),
         ]);
-        $this->audit($request, 'store.created', 'store', (string) $id, null, ['name' => $data['name'], 'code' => strtoupper($data['code'])]);
+        \App\Services\SecurityAuditService::log('store.created', 'store', (string) $id, $request->user()->id, null, ['name' => $data['name'], 'code' => strtoupper($data['code'])]);
 
         return response()->json(['store' => DB::table('stores')->find($id)], 201);
     }
@@ -66,7 +66,11 @@ class PlatformController extends Controller
                 ->delete();
         }
 
-        $this->audit($request, 'store.updated', 'store', (string) $storeId, (array) $store, $data);
+        if (array_key_exists('active', $data) && ! $data['active']) {
+            \App\Services\SecurityAuditService::log('store.disabled', 'store', (string) $storeId, $request->user()->id, null, ['active' => false]);
+        } else {
+            \App\Services\SecurityAuditService::log('store.updated', 'store', (string) $storeId, $request->user()->id, (array) $store, $data);
+        }
 
         return response()->json(['store' => DB::table('stores')->find($storeId)]);
     }
@@ -95,6 +99,7 @@ class PlatformController extends Controller
         ]);
 
         $roleChanged = array_key_exists('role', $data) && $data['role'] !== $user->role;
+        $oldRole = $user->role;
         $user->update(array_intersect_key($data, array_flip(['name', 'role'])));
 
         $storeChanged = false;
@@ -123,7 +128,11 @@ class PlatformController extends Controller
             }
         }
 
-        $this->audit($request, 'user.updated', 'user', (string) $user->id, null, ['role' => $user->role, 'store_id' => $data['store_id'] ?? null]);
+        if ($roleChanged) {
+            \App\Services\SecurityAuditService::log('role.changed', 'user', (string) $user->id, $request->user()->id, ['role' => $oldRole], ['role' => $user->role]);
+        } else {
+            \App\Services\SecurityAuditService::log('user.updated', 'user', (string) $user->id, $request->user()->id, null, ['role' => $user->role, 'store_id' => $data['store_id'] ?? null]);
+        }
 
         return response()->json(['user' => $user->fresh()]);
     }
@@ -150,7 +159,7 @@ class PlatformController extends Controller
         return response()->json(['sessions' => $sessions]);
     }
 
-    public function revokeUserSession(int $userId, int $tokenId): JsonResponse
+    public function revokeUserSession(Request $request, int $userId, int $tokenId): JsonResponse
     {
         $user = User::query()->findOrFail($userId);
         $token = $user->tokens()->where('id', $tokenId)->first();
@@ -161,10 +170,12 @@ class PlatformController extends Controller
         Cache::forget("token_activity:{$token->id}");
         $token->delete();
 
+        \App\Services\SecurityAuditService::log('session.revoked', 'session', (string) $tokenId, $request->user()->id, null, ['target_user_id' => $userId]);
+
         return response()->json(['message' => 'Session revoked.']);
     }
 
-    public function revokeAllUserSessions(int $userId): JsonResponse
+    public function revokeAllUserSessions(Request $request, int $userId): JsonResponse
     {
         $user = User::query()->findOrFail($userId);
         $tokens = $user->tokens()->get();
@@ -172,6 +183,8 @@ class PlatformController extends Controller
             Cache::forget("token_activity:{$token->id}");
             $token->delete();
         }
+
+        \App\Services\SecurityAuditService::log('session.revoked', 'session', 'all', $request->user()->id, null, ['target_user_id' => $userId]);
 
         return response()->json(['message' => 'All active sessions for user revoked.']);
     }
@@ -249,7 +262,11 @@ class PlatformController extends Controller
 
         Cache::put("token_activity:{$tokenObj->accessToken->id}", now()->toIso8601String(), now()->addHours(9));
 
-        $this->audit($request, 'impersonation.started', 'user', (string) $target->id, null, ['session_id' => $sessionId, 'store_id' => $data['store_id'], 'reason' => $data['reason']]);
+        \App\Services\SecurityAuditService::log('impersonation.started', 'user', (string) $target->id, $request->user()->id, null, [
+            'session_id' => $sessionId,
+            'store_id' => $data['store_id'],
+            'reason' => $data['reason'],
+        ]);
 
         return response()->json(['session_id' => $sessionId, 'token' => $tokenObj->plainTextToken, 'expires_at' => now()->addMinutes(30)->toISOString(), 'user' => $target->only(['id', 'name', 'email', 'role'])]);
     }
@@ -260,13 +277,9 @@ class PlatformController extends Controller
         abort_unless($session, 404, 'Impersonation session not found.');
         DB::table('impersonation_sessions')->where('id', $sessionId)->update(['ended_at' => now(), 'updated_at' => now()]);
         User::query()->find($session->target_user_id)?->tokens()->where('name', 'impersonation-'.$sessionId)->delete();
-        $this->audit($request, 'impersonation.ended', 'user', (string) $session->target_user_id, null, ['session_id' => $sessionId]);
+
+        \App\Services\SecurityAuditService::log('impersonation.ended', 'user', (string) $session->target_user_id, $request->user()->id, null, ['session_id' => $sessionId]);
 
         return response()->json(['message' => 'Impersonation session ended.']);
-    }
-
-    private function audit(Request $request, string $action, string $type, string $id, ?array $before, ?array $after): void
-    {
-        DB::table('audit_logs')->insert(['actor_id' => $request->user()->id, 'action' => $action, 'entity_type' => $type, 'entity_id' => $id, 'before' => $before ? json_encode($before) : null, 'after' => $after ? json_encode($after) : null, 'created_at' => now()]);
     }
 }

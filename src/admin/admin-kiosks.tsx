@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { AdminShell } from './admin-shell'
 import { useAdminStore } from './admin-store'
-import { getOrders, getSettings, type AdminOrder, type AdminSettings } from './admin-api'
+import { createActivationCode, getOrders, getSettings, type AdminOrder, type AdminSettings } from './admin-api'
 
 export interface KioskTerminal {
   id: string
@@ -39,7 +39,7 @@ export function KiosksPage() {
         ipAddress: window.location.hostname === 'localhost' ? '127.0.0.1' : window.location.hostname,
         status: navigator.onLine ? 'online' : 'offline',
         mode: 'both',
-        screen: '1080 × 1920 (Portrait Kiosk)',
+        screen: '1080 Ãƒâ€” 1920 (Portrait Kiosk)',
         registeredAt: new Date().toLocaleDateString(),
       },
     ]
@@ -64,6 +64,14 @@ export function KiosksPage() {
   const [newLocation, setNewLocation] = useState('')
   const [newMode, setNewMode] = useState<KioskTerminal['mode']>('both')
 
+  const handleGenerateActivationCode = async () => {
+    try {
+      const result = await createActivationCode(token)
+      window.prompt('Give this one-time code to the kiosk (expires in 30 minutes):', result.activation_code)
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not create activation code')
+    }
+  }
   const showToast = (msg: string) => {
     setToastMessage(msg)
     window.setTimeout(() => setToastMessage(null), 3500)
@@ -102,7 +110,7 @@ export function KiosksPage() {
 
     saveTerminals(updated)
     setEditingTerminal(null)
-    showToast(`✅ Saved changes for ${editingTerminal.id}`)
+    showToast(`Ã¢Å“â€¦ Saved changes for ${editingTerminal.id}`)
   }
 
   useEffect(() => {
@@ -127,7 +135,7 @@ export function KiosksPage() {
   }
 
   const reloadTerminal = (id: string) => {
-    showToast(`🔄 Reload command sent to ${id}.`)
+    showToast(`Ã°Å¸â€â€ž Reload command sent to ${id}.`)
   }
 
   const handleCreateTerminal = (e: React.FormEvent) => {
@@ -141,7 +149,7 @@ export function KiosksPage() {
       ipAddress: window.location.hostname === 'localhost' ? '127.0.0.1' : window.location.hostname,
       status: 'online',
       mode: newMode,
-      screen: '1080 × 1920 (Portrait Kiosk)',
+      screen: '1080 Ãƒâ€” 1920 (Portrait Kiosk)',
       registeredAt: new Date().toLocaleDateString(),
     }
 
@@ -150,7 +158,7 @@ export function KiosksPage() {
     setNewId('')
     setNewName('')
     setNewLocation('')
-    showToast(`✅ Registered terminal: ${newTerminal.id}`)
+    showToast(`Ã¢Å“â€¦ Registered terminal: ${newTerminal.id}`)
   }
 
   // Calculate real orders per terminal from actual database records
@@ -197,7 +205,7 @@ export function KiosksPage() {
             onClick={() => setToastMessage(null)}
             style={{ background: 'none', border: 0, color: '#fff', fontSize: '1rem', cursor: 'pointer' }}
           >
-            ✕
+            Ã¢Å“â€¢
           </button>
         </div>
       )}
@@ -274,6 +282,9 @@ export function KiosksPage() {
             </div>
           </div>
 
+          <button className="admin-secondary admin-secondary--small" onClick={handleGenerateActivationCode}>
+            Generate Activation Code
+          </button>
           <button className="admin-primary admin-primary--small" onClick={() => setShowModal(true)}>
             + Register Terminal
           </button>
@@ -322,7 +333,7 @@ export function KiosksPage() {
                       <p style={{ margin: '0.2rem 0 0', color: '#574d49', fontSize: '0.8rem', fontWeight: 600 }}>
                         {terminal.name}
                       </p>
-                      <small style={{ color: '#78716c', fontSize: '0.68rem' }}>📍 {terminal.location}</small>
+                      <small style={{ color: '#78716c', fontSize: '0.68rem' }}>Ã°Å¸â€œÂ {terminal.location}</small>
                     </div>
                   </div>
 
@@ -383,7 +394,7 @@ export function KiosksPage() {
                         gap: '0.3rem',
                       }}
                     >
-                      ✏️ Edit
+                      Ã¢Å“ÂÃ¯Â¸Â Edit
                     </button>
 
                     <button
@@ -400,7 +411,7 @@ export function KiosksPage() {
                         cursor: 'pointer',
                       }}
                     >
-                      {isMaintenance ? '🔓 Unlock Kiosk' : '🔒 Lock (Maint)'}
+                      {isMaintenance ? 'Ã°Å¸â€â€œ Unlock Kiosk' : 'Ã°Å¸â€â€™ Lock (Maint)'}
                     </button>
 
                     <button
@@ -416,7 +427,7 @@ export function KiosksPage() {
                         cursor: 'pointer',
                       }}
                     >
-                      🔄 Reload
+                      Ã°Å¸â€â€ž Reload
                     </button>
                   </div>
                 </div>
@@ -518,9 +529,9 @@ export function KiosksPage() {
                     background: '#fff',
                   }}
                 >
-                  <option value="1080 × 1920 (Portrait Kiosk)">1080 × 1920 (Portrait Kiosk)</option>
-                  <option value="1920 × 1080 (Landscape Kiosk)">1920 × 1080 (Landscape Kiosk)</option>
-                  <option value="1440 × 900 (Desktop Dev)">1440 × 900 (Desktop Dev)</option>
+                  <option value="1080 Ãƒâ€” 1920 (Portrait Kiosk)">1080 Ãƒâ€” 1920 (Portrait Kiosk)</option>
+                  <option value="1920 Ãƒâ€” 1080 (Landscape Kiosk)">1920 Ãƒâ€” 1080 (Landscape Kiosk)</option>
+                  <option value="1440 Ãƒâ€” 900 (Desktop Dev)">1440 Ãƒâ€” 900 (Desktop Dev)</option>
                 </select>
               </div>
 

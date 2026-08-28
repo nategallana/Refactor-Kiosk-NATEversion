@@ -123,6 +123,10 @@ class WboxBridge
                 'updated_at' => now(),
             ]);
 
+            \App\Services\SecurityAuditService::log('wbox.export.failed', 'order', (string) $export->order_id, null, null, [
+                'error' => Str::limit($exception->getMessage(), 500, ''),
+            ]);
+
             return 'failed';
         }
     }

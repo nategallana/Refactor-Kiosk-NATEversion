@@ -1,4 +1,5 @@
 import { catalogSchema, type CatalogRepository, type Product } from '../domain/catalog'
+import { useTerminalStore } from '../store/terminal-store'
 
 const apiBase = (import.meta as unknown as Record<string, Record<string, string>>).env?.VITE_API_BASE ?? '/api/v1'
 const terminalToken = () => {
@@ -85,7 +86,15 @@ export class ApiCatalogRepository implements CatalogRepository {
       signal,
       headers: { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     })
-    if (!response.ok) throw new Error(`Catalog fetch failed: ${response.status}`)
+    if (!response.ok) {
+      if (response.status === 401) {
+        useTerminalStore.getState().clearRegistration()
+        throw new Error('This kiosk activation has expired. Please activate the terminal again.')
+      }
+      if (response.status === 404) throw new Error('No menu is configured for this store yet.')
+      if (response.status >= 500) throw new Error('The menu service is temporarily unavailable. Please try again.')
+      throw new Error(`Catalog fetch failed: ${response.status}`)
+    }
     const raw = await response.json()
     this.cache = mapCatalog(raw)
     return this.cache

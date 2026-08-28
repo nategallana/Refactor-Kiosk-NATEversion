@@ -24,11 +24,11 @@ Route::prefix('v1')->group(function (): void {
         Route::get('/terminals/config', [TerminalController::class, 'config']);
     });
 
-    Route::get('/settings', [AdminSettingsController::class, 'publicShow']);
+    Route::get('/settings', [AdminSettingsController::class, 'publicShow'])->middleware(AuthenticateTerminal::class);
     Route::get('/catalog', [AdminCatalogController::class, 'index'])->middleware(AuthenticateTerminal::class);
-    Route::post('/orders', [OrderController::class, 'store']);
+    Route::post('/orders', [OrderController::class, 'store'])->middleware(AuthenticateTerminal::class);
     Route::post('/payments/webhook/{provider}', [PaymentWebhookController::class, 'handle']);
-    Route::post('/admin/auth/login', [AdminAuthController::class, 'login'])->middleware('throttle:10,1');
+    Route::post('/admin/auth/login', [AdminAuthController::class, 'login'])->middleware('throttle:login');
     Route::middleware(['auth:sanctum', 'session.security', 'store.context'])->prefix('admin')->group(function (): void {
         Route::get('/auth/me', [AdminAuthController::class, 'me']);
         Route::post('/auth/logout', [AdminAuthController::class, 'logout']);
@@ -38,7 +38,7 @@ Route::prefix('v1')->group(function (): void {
         Route::patch('/products/{product}/wbox-mapping', [AdminCatalogController::class, 'wboxMapping']);
         Route::get('/orders', [AdminOrderController::class, 'index']);
         Route::patch('/orders/{order}/status', [AdminOrderController::class, 'updateStatus']);
-        Route::post('/orders/{order}/wbox/retry', [AdminWboxController::class, 'retry']);
+        Route::post('/orders/{order}/wbox/retry', [AdminWboxController::class, 'retry'])->middleware('throttle:wbox_retry');
         Route::get('/settings', [AdminSettingsController::class, 'show']);
         Route::put('/settings', [AdminSettingsController::class, 'update']);
         Route::get('/wbox/status', [AdminWboxController::class, 'status']);
@@ -51,7 +51,8 @@ Route::prefix('v1')->group(function (): void {
 
         // Admin terminal management
         Route::get('/terminals', [AdminTerminalController::class, 'index']);
-        Route::post('/terminals', [AdminTerminalController::class, 'store']);
+        Route::post('/terminals', [AdminTerminalController::class, 'store'])->middleware('throttle:terminal_registration');
+        Route::post('/terminal-activation-codes', [AdminTerminalController::class, 'createActivationCode'])->middleware('throttle:terminal_registration');
         Route::patch('/terminals/{terminalId}', [AdminTerminalController::class, 'update']);
         Route::delete('/terminals/{terminalId}', [AdminTerminalController::class, 'destroy']);
         Route::post('/terminals/{terminalId}/command', [AdminTerminalController::class, 'command']);
@@ -69,7 +70,7 @@ Route::prefix('v1')->group(function (): void {
         Route::get('/terminals', [PlatformController::class, 'terminals']);
         Route::get('/reports/sales', [PlatformController::class, 'report']);
         Route::get('/audit-logs', [PlatformController::class, 'auditLogs']);
-        Route::post('/impersonation/{userId}', [PlatformController::class, 'impersonate']);
+        Route::post('/impersonation/{userId}', [PlatformController::class, 'impersonate'])->middleware('throttle:impersonation');
         Route::delete('/impersonation/{sessionId}', [PlatformController::class, 'endImpersonation']);
     });
 });
