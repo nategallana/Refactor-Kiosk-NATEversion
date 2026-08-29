@@ -5,6 +5,11 @@ import { ArrowLeft, Card, Store } from '../components/icons'
 import { Brand } from '../components/brand'
 import { calculateTotals, formatMoney, type PaymentMethod, type OrderReceipt } from '../domain/order'
 import { useKioskStore } from '../store/kiosk-store'
+<<<<<<< Updated upstream
+=======
+import { useTerminalStore } from '../store/terminal-store'
+import { useAdminNotificationsStore } from '../admin/admin-notifications-store'
+>>>>>>> Stashed changes
 
 const createdOrderSchema = z.object({
   order: z.object({
@@ -113,6 +118,16 @@ export function PaymentScreen() {
         total: order.total_minor,
       }
       setReceipt(receipt)
+
+      // Notify admin panel
+      useAdminNotificationsStore.getState().addNotification({
+        title: `New Order #${order.order_number} Placed`,
+        message: `Customer placed a ${diningType === 'takeout' ? 'Takeout' : 'Dine-In'} order (${order.items.length} items) for ${formatMoney(order.total_minor)} · ${method === 'card' ? 'Card at Kiosk' : 'Pay at Counter'}.`,
+        category: 'orders',
+        severity: 'success',
+        link: '/admin/orders',
+      })
+
       navigate('/ticket', { replace: true })
     } catch {
       submitting.current = false

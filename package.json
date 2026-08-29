@@ -9,16 +9,22 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -p tsconfig.app.json && vite build",
-    "lint": "eslint .",
+    "lint": "eslint src",
     "test": "vitest run --globals --pool=threads --poolOptions.threads.singleThread=true",
     "test:watch": "vitest",
     "check": "npm run lint && npm run test && npm run build"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.1.14",
+<<<<<<< Updated upstream
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-router-dom": "^7.18.2",
+=======
+    "react": "^19.1.1",
+    "react-dom": "^19.2.8",
+    "react-router-dom": "^7.8.2",
+>>>>>>> Stashed changes
     "tailwindcss": "^4.1.14",
     "zod": "^4.1.5",
     "zustand": "^5.0.8"
@@ -28,8 +34,13 @@
     "@testing-library/jest-dom": "^6.8.0",
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^14.6.1",
+<<<<<<< Updated upstream
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",
+=======
+    "@types/node": "^24.3.0",
+    "@types/react": "^19.1.12",
+>>>>>>> Stashed changes
     "@types/react-dom": "^19.2.5",
     "@vitejs/plugin-react": "^5.0.2",
     "eslint": "^9.35.0",

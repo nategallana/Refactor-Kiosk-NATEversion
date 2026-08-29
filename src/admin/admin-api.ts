@@ -28,7 +28,23 @@ const settingsSchema = z.object({
   auto_reset_seconds: z.number().int(),
   receipt_header: z.string().nullable(),
   receipt_footer: z.string().nullable(),
+<<<<<<< Updated upstream
   welcome_background_image: z.string().nullable().optional(),
+=======
+  welcome_background_url: z.string().nullable().optional(),
+  wbox_enabled: z.coerce.boolean(),
+  wbox_request_path: z.string().nullable(),
+  wbox_response_path: z.string().nullable(),
+  wbox_kiosk_number: z.string(),
+  wbox_version: z.string(),
+  wbox_pdaver: z.string(),
+  wbox_server: z.string(),
+  wbox_device: z.string(),
+  wbox_product: z.string(),
+  wbox_response_filename: z.string(),
+  wbox_retry_seconds: z.number().int(),
+  wbox_auth_token_configured: z.coerce.boolean(),
+>>>>>>> Stashed changes
   created_at: z.string().nullable(),
   updated_at: z.string().nullable(),
 })

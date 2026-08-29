@@ -12,7 +12,11 @@ export interface PublicSettings {
   receipt_header: string | null
   receipt_footer: string | null
   tax_rate_basis_points: number
+<<<<<<< Updated upstream
   welcome_background_image: string | null
+=======
+  welcome_background_url: string | null
+>>>>>>> Stashed changes
 }
 
 export const defaultSettings: PublicSettings = {
@@ -25,7 +29,11 @@ export const defaultSettings: PublicSettings = {
   receipt_header: null,
   receipt_footer: 'Thank you for dining with us.',
   tax_rate_basis_points: 1200,
+<<<<<<< Updated upstream
   welcome_background_image: null,
+=======
+  welcome_background_url: null,
+>>>>>>> Stashed changes
 }
 
 interface CheckoutAttempt {
@@ -95,7 +103,11 @@ export const useKioskStore = create<KioskState>()(persist((set, get) => ({
               receipt_header: data.settings.receipt_header || null,
               receipt_footer: data.settings.receipt_footer || 'Thank you for dining with us.',
               tax_rate_basis_points: Number(data.settings.tax_rate_basis_points) || 1200,
+<<<<<<< Updated upstream
               welcome_background_image: data.settings.welcome_background_image || null,
+=======
+              welcome_background_url: data.settings.welcome_background_url || null,
+>>>>>>> Stashed changes
             },
           })
         }

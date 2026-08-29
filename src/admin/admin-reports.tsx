@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { formatMoney } from '../domain/order'
+import { formatPhTime, formatPhDateTime, formatPhDate, getPhHour, parseDate } from '../domain/datetime'
 import { getOrders, getSettings, type AdminOrder } from './admin-api'
 import { AdminShell } from './admin-shell'
 import { useAdminStore } from './admin-store'
@@ -26,6 +27,7 @@ export function ReportsPage() {
   const [selectedTerminal, setSelectedTerminal] = useState<string>('all')
   const [selectedDiningType, setSelectedDiningType] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState('')
+  const [hourlyGraphMode, setHourlyGraphMode] = useState<'bars' | 'list'>('bars')
 
   useEffect(() => {
     setLoading(true)
@@ -62,7 +64,7 @@ export function ReportsPage() {
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime()
 
     return orders.filter((order) => {
-      const orderTime = new Date(order.placed_at).getTime()
+      const orderTime = parseDate(order.placed_at).getTime()
 
       // Date filtering
       if (datePreset === 'today') {
@@ -106,17 +108,17 @@ export function ReportsPage() {
     })
   }, [orders, datePreset, customFrom, customTo, selectedTerminal, selectedDiningType, searchQuery])
 
-  // Settled (Paid & Confirmed/Preparing/Ready/Completed) vs Pending/Cancelled Orders
+  // Active / Settled Orders (All non-cancelled valid orders)
   const isSettledOrder = (o: AdminOrder) => {
     const fStatus = (o.fulfillment_status || '').toLowerCase()
-    return fStatus !== 'pending' && fStatus !== 'cancelled'
+    return fStatus !== 'cancelled'
   }
 
   const settledOrders = useMemo(() => filteredOrders.filter(isSettledOrder), [filteredOrders])
   const pendingOrders = useMemo(() => filteredOrders.filter((o) => (o.fulfillment_status || '').toLowerCase() === 'pending'), [filteredOrders])
   const cancelledOrders = useMemo(() => filteredOrders.filter((o) => (o.fulfillment_status || '').toLowerCase() === 'cancelled'), [filteredOrders])
 
-  // KPIs (Calculated strictly from Settled/Non-Pending orders)
+  // KPIs (Calculated from all active / non-cancelled orders)
   const stats = useMemo(() => {
     const totalSalesMinor = settledOrders.reduce((sum, o) => sum + (o.total_minor || 0), 0)
     const totalOrders = settledOrders.length
@@ -168,7 +170,7 @@ export function ReportsPage() {
     }
   }, [settledOrders, pendingOrders, cancelledOrders])
 
-  // Payment Breakdown (Calculated from Settled orders)
+  // Payment Breakdown (Calculated from active orders)
   const paymentBreakdown = useMemo(() => {
     const map = new Map<string, { count: number; totalMinor: number }>()
 
@@ -188,19 +190,32 @@ export function ReportsPage() {
     }))
   }, [settledOrders, stats.totalSalesMinor])
 
-  // Hourly Activity (Calculated from Settled orders)
+  // Hourly Activity (Calculated across all non-cancelled orders in Philippines Time)
   const hourlyActivity = useMemo(() => {
-    const hours = Array.from({ length: 15 }, (_, i) => i + 8) // 8 AM to 10 PM
-    const data = hours.map((h) => ({
+    // Detect hours present in the orders, default to 7 AM (7) through 10 PM (22)
+    const orderHours = settledOrders
+      .map((o) => {
+        const d = parseDate(o.placed_at)
+        return isNaN(d.getTime()) ? null : getPhHour(d)
+      })
+      .filter((h): h is number => h !== null)
+
+    const minHour = orderHours.length ? Math.min(7, ...orderHours) : 7
+    const maxHour = orderHours.length ? Math.max(22, ...orderHours) : 22
+    const hoursRange = Array.from({ length: maxHour - minHour + 1 }, (_, i) => i + minHour)
+
+    const data = hoursRange.map((h) => ({
       hour: h,
       label: `${h % 12 === 0 ? 12 : h % 12} ${h < 12 ? 'AM' : 'PM'}`,
+      shortLabel: `${h % 12 === 0 ? 12 : h % 12}${h < 12 ? 'a' : 'p'}`,
       orders: 0,
       salesMinor: 0,
     }))
 
     settledOrders.forEach((o) => {
-      const d = new Date(o.placed_at)
-      const h = d.getHours()
+      const d = parseDate(o.placed_at)
+      if (isNaN(d.getTime())) return
+      const h = getPhHour(d)
       const item = data.find((x) => x.hour === h)
       if (item) {
         item.orders++
@@ -208,10 +223,12 @@ export function ReportsPage() {
       }
     })
 
+    const totalOrdersInHours = data.reduce((sum, d) => sum + d.orders, 0)
     const maxSales = Math.max(...data.map((d) => d.salesMinor), 1)
-    const peakHour = [...data].sort((a, b) => b.salesMinor - a.salesMinor)[0]
+    const maxOrders = Math.max(...data.map((d) => d.orders), 1)
+    const peakHour = [...data].filter((d) => d.orders > 0).sort((a, b) => b.salesMinor - a.salesMinor)[0] || null
 
-    return { data, maxSales, peakHour }
+    return { data, maxSales, maxOrders, totalOrdersInHours, peakHour }
   }, [settledOrders])
 
   // Top Selling Items (Calculated from Settled orders)
@@ -305,9 +322,9 @@ export function ReportsPage() {
       <body>
         <div class="header">
           <h1>${brandName}</h1>
-          <p>Official Daily Sales & POS Audit Report</p>
-          <p>Period: ${dateLabel} (${new Date().toLocaleDateString()})</p>
-          <p>Generated: ${new Date().toLocaleString()}</p>
+          <p>Official Daily Sales & POS Audit Report (Philippines Time · GMT+8)</p>
+          <p>Period: ${dateLabel} (${formatPhDate(new Date())})</p>
+          <p>Generated: ${formatPhDateTime(new Date())}</p>
         </div>
 
         <div class="section">
@@ -548,52 +565,219 @@ export function ReportsPage() {
           <section style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: '1.25rem', marginBottom: '1.25rem' }}>
             {/* Hourly Peak Activity */}
             <article className="admin-panel" style={{ padding: '1.25rem' }}>
-              <div className="admin-panel__heading" style={{ marginBottom: '1rem' }}>
+              <div className="admin-panel__heading" style={{ marginBottom: '1rem', flexWrap: 'wrap', gap: '0.6rem' }}>
                 <div>
                   <p>STORE RUSH TIMELINE</p>
                   <h2 style={{ fontSize: '1.05rem', margin: '0.15rem 0' }}>Hourly Sales Activity</h2>
                 </div>
-                {hourlyActivity.peakHour && hourlyActivity.peakHour.orders > 0 && (
-                  <span
-                    style={{
-                      background: '#fff7ed',
-                      color: '#ea580c',
-                      border: '1px solid #fed7aa',
-                      borderRadius: '0.4rem',
-                      fontSize: '0.72rem',
-                      fontWeight: 700,
-                      padding: '0.2rem 0.5rem',
-                    }}
-                  >
-                    🔥 Peak: {hourlyActivity.peakHour.label} ({formatMoney(hourlyActivity.peakHour.salesMinor)})
-                  </span>
-                )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  {hourlyActivity.peakHour && hourlyActivity.peakHour.orders > 0 && (
+                    <span
+                      style={{
+                        background: '#fff7ed',
+                        color: '#ea580c',
+                        border: '1px solid #fed7aa',
+                        borderRadius: '0.4rem',
+                        fontSize: '0.72rem',
+                        fontWeight: 700,
+                        padding: '0.25rem 0.55rem',
+                      }}
+                    >
+                      🔥 Peak: {hourlyActivity.peakHour.label} ({formatMoney(hourlyActivity.peakHour.salesMinor)})
+                    </span>
+                  )}
+                  <div style={{ display: 'flex', background: '#f5eee8', borderRadius: '0.45rem', padding: '2px' }}>
+                    <button
+                      type="button"
+                      onClick={() => setHourlyGraphMode('bars')}
+                      style={{
+                        background: hourlyGraphMode === 'bars' ? '#ffffff' : 'transparent',
+                        border: 0,
+                        borderRadius: '0.35rem',
+                        padding: '0.25rem 0.55rem',
+                        fontSize: '0.68rem',
+                        fontWeight: 750,
+                        color: hourlyGraphMode === 'bars' ? '#ea580c' : '#78716c',
+                        cursor: 'pointer',
+                        boxShadow: hourlyGraphMode === 'bars' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                      }}
+                    >
+                      📊 Chart
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setHourlyGraphMode('list')}
+                      style={{
+                        background: hourlyGraphMode === 'list' ? '#ffffff' : 'transparent',
+                        border: 0,
+                        borderRadius: '0.35rem',
+                        padding: '0.25rem 0.55rem',
+                        fontSize: '0.68rem',
+                        fontWeight: 750,
+                        color: hourlyGraphMode === 'list' ? '#ea580c' : '#78716c',
+                        cursor: 'pointer',
+                        boxShadow: hourlyGraphMode === 'list' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                      }}
+                    >
+                      📋 List
+                    </button>
+                  </div>
+                </div>
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', marginTop: '0.75rem' }}>
-                {hourlyActivity.data.map((h) => {
-                  const barWidth = (h.salesMinor / hourlyActivity.maxSales) * 100
-                  return (
-                    <div key={h.hour} style={{ display: 'grid', gridTemplateColumns: '4rem 1fr 5rem', alignItems: 'center', gap: '0.65rem' }}>
-                      <span style={{ fontSize: '0.72rem', color: '#78716c', fontWeight: 600 }}>{h.label}</span>
-                      <div style={{ background: '#f5f5f4', borderRadius: '4px', height: '14px', width: '100%', overflow: 'hidden' }}>
+              {hourlyActivity.totalOrdersInHours === 0 ? (
+                <div style={{ textAlign: 'center', padding: '2.5rem 1rem', color: '#78716c' }}>
+                  <span style={{ fontSize: '2rem', display: 'block', marginBottom: '0.4rem' }}>⏱️</span>
+                  <strong style={{ display: 'block', color: '#292524', fontSize: '0.85rem' }}>No orders in this period</strong>
+                  <p style={{ fontSize: '0.72rem', margin: '0.2rem 0 0', color: '#a89e98' }}>
+                    Once customer kiosk orders are submitted, hourly rush trends will be visualized here.
+                  </p>
+                </div>
+              ) : hourlyGraphMode === 'bars' ? (
+                /* Vertical Bar Chart View */
+                <div style={{ marginTop: '0.85rem' }}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'flex-end',
+                      gap: '0.35rem',
+                      height: '11.5rem',
+                      padding: '0.5rem 0.2rem 0.2rem',
+                      background: '#fffdfb',
+                      borderRadius: '0.65rem',
+                      border: '1px solid #fed7aa60',
+                      overflowX: 'auto',
+                    }}
+                  >
+                    {hourlyActivity.data.map((h) => {
+                      const isPeak = hourlyActivity.peakHour?.hour === h.hour && h.orders > 0
+                      const heightPercent = h.orders > 0
+                        ? Math.max(Math.round((h.salesMinor / hourlyActivity.maxSales) * 100), 12)
+                        : 0
+
+                      return (
                         <div
+                          key={h.hour}
+                          title={`${h.label}: ${h.orders} order${h.orders === 1 ? '' : 's'} · ${formatMoney(h.salesMinor)}`}
                           style={{
-                            width: `${Math.max(barWidth, h.orders > 0 ? 3 : 0)}%`,
+                            flex: 1,
+                            minWidth: '2.2rem',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
                             height: '100%',
-                            background: h.orders > 0 ? '#ea580c' : 'transparent',
-                            borderRadius: '4px',
-                            transition: 'width 0.3s ease',
+                            justifyContent: 'flex-end',
                           }}
-                        />
+                        >
+                          {/* Order count chip */}
+                          {h.orders > 0 && (
+                            <span
+                              style={{
+                                background: isPeak ? '#ea580c' : '#fb923c',
+                                color: '#ffffff',
+                                fontSize: '0.6rem',
+                                fontWeight: 800,
+                                padding: '0.1rem 0.35rem',
+                                borderRadius: '0.25rem',
+                                marginBottom: '0.25rem',
+                                boxShadow: '0 2px 4px rgba(234, 88, 12, 0.25)',
+                              }}
+                            >
+                              {h.orders}
+                            </span>
+                          )}
+
+                          {/* Bar Column Track */}
+                          <div
+                            style={{
+                              width: '100%',
+                              height: '7.5rem',
+                              background: '#f7f2ee',
+                              borderRadius: '0.4rem',
+                              display: 'flex',
+                              alignItems: 'flex-end',
+                              overflow: 'hidden',
+                              padding: '2px',
+                            }}
+                          >
+                            <div
+                              style={{
+                                width: '100%',
+                                height: `${heightPercent}%`,
+                                background: isPeak
+                                  ? 'linear-gradient(180deg, #ea580c 0%, #c2410c 100%)'
+                                  : 'linear-gradient(180deg, #fb923c 0%, #ea580c 100%)',
+                                borderRadius: '0.3rem',
+                                transition: 'height 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
+                              }}
+                            />
+                          </div>
+
+                          {/* Time label */}
+                          <span
+                            style={{
+                              fontSize: '0.62rem',
+                              fontWeight: isPeak ? 800 : 600,
+                              color: isPeak ? '#ea580c' : '#78716c',
+                              marginTop: '0.35rem',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {h.shortLabel}
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.6rem', fontSize: '0.68rem', color: '#78716c' }}>
+                    <span>Total orders in timeline: <strong>{hourlyActivity.totalOrdersInHours}</strong></span>
+                    <span>Max peak hour revenue: <strong>{formatMoney(hourlyActivity.maxSales)}</strong></span>
+                  </div>
+                </div>
+              ) : (
+                /* Horizontal List View */
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', marginTop: '0.75rem', maxHeight: '14rem', overflowY: 'auto' }}>
+                  {hourlyActivity.data.map((h) => {
+                    const isPeak = hourlyActivity.peakHour?.hour === h.hour && h.orders > 0
+                    const barWidth = (h.salesMinor / hourlyActivity.maxSales) * 100
+                    return (
+                      <div
+                        key={h.hour}
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: '4rem 1fr 2.5rem 5rem',
+                          alignItems: 'center',
+                          gap: '0.65rem',
+                          padding: '0.3rem 0.5rem',
+                          borderRadius: '0.4rem',
+                          background: isPeak ? '#fff7ed' : 'transparent',
+                        }}
+                      >
+                        <span style={{ fontSize: '0.72rem', color: isPeak ? '#ea580c' : '#78716c', fontWeight: isPeak ? 800 : 600 }}>
+                          {h.label}
+                        </span>
+                        <div style={{ background: '#f5f5f4', borderRadius: '4px', height: '14px', width: '100%', overflow: 'hidden' }}>
+                          <div
+                            style={{
+                              width: `${Math.max(barWidth, h.orders > 0 ? 4 : 0)}%`,
+                              height: '100%',
+                              background: isPeak ? 'linear-gradient(90deg, #ea580c, #c2410c)' : '#ea580c',
+                              borderRadius: '4px',
+                              transition: 'width 0.3s ease',
+                            }}
+                          />
+                        </div>
+                        <span style={{ fontSize: '0.68rem', color: '#78716c', textAlign: 'center', fontWeight: 700 }}>
+                          {h.orders > 0 ? `${h.orders} ord` : '—'}
+                        </span>
+                        <span style={{ fontSize: '0.72rem', color: isPeak ? '#ea580c' : '#292524', textAlign: 'right', fontWeight: 700 }}>
+                          {h.orders > 0 ? formatMoney(h.salesMinor) : '—'}
+                        </span>
                       </div>
-                      <span style={{ fontSize: '0.72rem', color: '#292524', textAlign: 'right', fontWeight: 600 }}>
-                        {h.orders > 0 ? formatMoney(h.salesMinor) : '—'}
-                      </span>
-                    </div>
-                  )
-                })}
-              </div>
+                    )
+                  })}
+                </div>
+              )}
             </article>
 
             {/* Payment Tenders & VAT Summary */}
@@ -796,7 +980,7 @@ export function ReportsPage() {
                         <td>
                           <strong>#{o.order_number}</strong>
                         </td>
-                        <td>{new Date(o.placed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+                        <td>{formatPhTime(o.placed_at)}</td>
                         <td>{o.terminal_id}</td>
                         <td>
                           <span

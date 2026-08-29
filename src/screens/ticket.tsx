@@ -3,6 +3,7 @@ import { Navigate, useNavigate } from 'react-router-dom'
 import { Brand } from '../components/brand'
 import { Check } from '../components/icons'
 import { formatMoney, lineTotal } from '../domain/order'
+import { formatPhTime } from '../domain/datetime'
 import { useKioskStore } from '../store/kiosk-store'
 
 export function TicketScreen() {
@@ -59,7 +60,7 @@ export function TicketScreen() {
           <p style={{ fontWeight: 600, color: '#ea580c', margin: '0.2rem 0' }}>{settings.receipt_header}</p>
         )}
         <p>
-          {receipt.diningType === 'dine-in' ? 'DINE IN' : 'TAKE OUT'} · {new Date(receipt.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          {receipt.diningType === 'dine-in' ? 'DINE IN' : 'TAKE OUT'} · {formatPhTime(receipt.createdAt)}
         </p>
         <div className="receipt__number">#{receipt.orderNumber}</div>
         <hr />
