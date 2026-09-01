@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { formatMoney } from '../domain/order'
-import { formatPhTime, formatPhDateTime, formatPhDate, getPhHour, parseDate } from '../domain/datetime'
+import { formatPhTime, formatPhDateTime, formatPhDate, getPhHour, parseDate, getTzDateString, getActiveTimezone } from '../domain/datetime'
 import { getOrders, getSettings, type AdminOrder } from './admin-api'
 import { AdminShell } from './admin-shell'
 import { useAdminStore } from './admin-store'
+import { Toast } from '../components/toast'
 
 interface OrderItemDetail {
   name: string
@@ -20,14 +21,59 @@ export function ReportsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  // Filters
-  const [datePreset, setDatePreset] = useState<'today' | 'yesterday' | 'week' | 'month' | 'all' | 'custom'>('today')
-  const [customFrom, setCustomFrom] = useState('')
-  const [customTo, setCustomTo] = useState('')
-  const [selectedTerminal, setSelectedTerminal] = useState<string>('all')
-  const [selectedDiningType, setSelectedDiningType] = useState<string>('all')
+  // Filters with LocalStorage Persistence
+  const [datePreset, setDatePreset] = useState<'today' | 'yesterday' | 'week' | 'month' | 'all' | 'custom'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('kiosk_admin_report_period_preset')
+      if (saved && ['today', 'yesterday', 'week', 'month', 'all', 'custom'].includes(saved)) {
+        return saved as 'today' | 'yesterday' | 'week' | 'month' | 'all' | 'custom'
+      }
+    }
+    return 'today'
+  })
+  const [customFrom, setCustomFrom] = useState(() => {
+    return typeof window !== 'undefined' ? localStorage.getItem('kiosk_admin_report_custom_from') || '' : ''
+  })
+  const [customTo, setCustomTo] = useState(() => {
+    return typeof window !== 'undefined' ? localStorage.getItem('kiosk_admin_report_custom_to') || '' : ''
+  })
+  const [selectedTerminal, setSelectedTerminal] = useState<string>(() => {
+    return typeof window !== 'undefined' ? localStorage.getItem('kiosk_admin_report_selected_terminal') || 'all' : 'all'
+  })
+  const [selectedDiningType, setSelectedDiningType] = useState<string>(() => {
+    return typeof window !== 'undefined' ? localStorage.getItem('kiosk_admin_report_selected_dining') || 'all' : 'all'
+  })
+  const [savedPreset, setSavedPreset] = useState<string>(() => {
+    return typeof window !== 'undefined' ? localStorage.getItem('kiosk_admin_report_period_preset') || 'today' : 'today'
+  })
   const [searchQuery, setSearchQuery] = useState('')
   const [hourlyGraphMode, setHourlyGraphMode] = useState<'bars' | 'list'>('bars')
+  const [toastMessage, setToastMessage] = useState<string | null>(null)
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg)
+    window.setTimeout(() => setToastMessage(null), 3500)
+  }
+
+  const handleSavePeriodPreference = () => {
+    localStorage.setItem('kiosk_admin_report_period_preset', datePreset)
+    localStorage.setItem('kiosk_admin_report_custom_from', customFrom)
+    localStorage.setItem('kiosk_admin_report_custom_to', customTo)
+    localStorage.setItem('kiosk_admin_report_selected_terminal', selectedTerminal)
+    localStorage.setItem('kiosk_admin_report_selected_dining', selectedDiningType)
+    setSavedPreset(datePreset)
+
+    const presetLabels: Record<string, string> = {
+      today: 'Today',
+      yesterday: 'Yesterday',
+      week: 'Last 7 Days',
+      month: 'This Month',
+      all: 'All Time',
+      custom: 'Custom Range',
+    }
+    const label = presetLabels[datePreset] || datePreset
+    showToast(`💾 Saved "${label}" as your default report view!`)
+  }
 
   useEffect(() => {
     setLoading(true)
@@ -57,33 +103,31 @@ export function ReportsPage() {
 
   // Filtered Orders
   const filteredOrders = useMemo(() => {
+    const tz = getActiveTimezone()
     const now = new Date()
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
-    const yesterdayStart = todayStart - 86400000
-    const weekStart = todayStart - 7 * 86400000
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime()
+    const todayStr = getTzDateString(now, tz)
+    const yesterdayDate = new Date(now.getTime() - 86400000)
+    const yesterdayStr = getTzDateString(yesterdayDate, tz)
+    const weekStartDate = new Date(now.getTime() - 7 * 86400000)
+    const weekStartStr = getTzDateString(weekStartDate, tz)
+    const currentMonthPrefix = todayStr.slice(0, 7)
 
     return orders.filter((order) => {
-      const orderTime = parseDate(order.placed_at).getTime()
+      const orderDateStr = getTzDateString(order.placed_at, tz)
+      if (!orderDateStr) return false
 
       // Date filtering
       if (datePreset === 'today') {
-        if (orderTime < todayStart) return false
+        if (orderDateStr !== todayStr) return false
       } else if (datePreset === 'yesterday') {
-        if (orderTime < yesterdayStart || orderTime >= todayStart) return false
+        if (orderDateStr !== yesterdayStr) return false
       } else if (datePreset === 'week') {
-        if (orderTime < weekStart) return false
+        if (orderDateStr < weekStartStr || orderDateStr > todayStr) return false
       } else if (datePreset === 'month') {
-        if (orderTime < monthStart) return false
+        if (!orderDateStr.startsWith(currentMonthPrefix)) return false
       } else if (datePreset === 'custom') {
-        if (customFrom) {
-          const fromTime = new Date(customFrom).getTime()
-          if (orderTime < fromTime) return false
-        }
-        if (customTo) {
-          const toTime = new Date(customTo + 'T23:59:59').getTime()
-          if (orderTime > toTime) return false
-        }
+        if (customFrom && orderDateStr < customFrom) return false
+        if (customTo && orderDateStr > customTo) return false
       }
 
       // Terminal filtering
@@ -374,49 +418,53 @@ export function ReportsPage() {
 
   return (
     <AdminShell
-      title="Sales & Operations Reports"
+      title="Sales Reports"
       eyebrow="BUSINESS INSIGHTS"
       action={
-        <div style={{ display: 'flex', gap: '0.6rem' }}>
+        <div style={{ display: 'flex', gap: '0.45rem', alignItems: 'center', whiteSpace: 'nowrap', flexShrink: 0 }}>
           <button
             onClick={handleExportCsv}
             style={{
               display: 'inline-flex',
               alignItems: 'center',
-              gap: '0.4rem',
-              padding: '0.45rem 0.9rem',
+              gap: '0.35rem',
+              padding: '0.42rem 0.8rem',
               borderRadius: '0.5rem',
-              fontSize: '0.8rem',
-              fontWeight: 600,
+              fontSize: '0.78rem',
+              fontWeight: 650,
               background: '#fff',
               border: '1px solid #e7e5e4',
               color: '#44403c',
               cursor: 'pointer',
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
               boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
             }}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            Export CSV
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <span>Export CSV</span>
           </button>
           <button
             onClick={handlePrintReport}
             style={{
               display: 'inline-flex',
               alignItems: 'center',
-              gap: '0.4rem',
-              padding: '0.45rem 0.9rem',
+              gap: '0.35rem',
+              padding: '0.42rem 0.85rem',
               borderRadius: '0.5rem',
-              fontSize: '0.8rem',
-              fontWeight: 600,
+              fontSize: '0.78rem',
+              fontWeight: 650,
               background: '#ea580c',
               border: '1px solid #c2410c',
               color: '#fff',
               cursor: 'pointer',
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
               boxShadow: '0 1px 3px rgba(234,88,12,0.25)',
             }}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-            Print Z-Reading
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+            <span>Print Z-Reading</span>
           </button>
         </div>
       }
@@ -426,99 +474,231 @@ export function ReportsPage() {
         style={{
           background: '#fff',
           border: '1px solid #f0e8e2',
-          borderRadius: '0.75rem',
-          padding: '0.85rem 1.1rem',
+          borderRadius: '0.85rem',
+          padding: '0.9rem 1.15rem',
           marginBottom: '1.25rem',
           display: 'flex',
-          flexWrap: 'wrap',
-          alignItems: 'center',
-          justifyContent: 'space-between',
+          flexDirection: 'column',
           gap: '0.85rem',
           boxShadow: '0 1px 4px rgba(0,0,0,0.02)',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#78716c', letterSpacing: '0.05em', marginRight: '0.2rem' }}>
-            PERIOD:
-          </span>
-          {(['today', 'yesterday', 'week', 'month', 'all', 'custom'] as const).map((preset) => (
-            <button
-              key={preset}
-              onClick={() => setDatePreset(preset)}
+        {/* Row 1: Period Segmented Buttons + Custom Date Range + Save as Default */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '0.75rem',
+            flexWrap: 'wrap',
+          }}
+        >
+          {/* Left: Period Segmented Buttons */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#78716c', letterSpacing: '0.06em', marginRight: '0.2rem' }}>
+              PERIOD:
+            </span>
+            <div
               style={{
-                padding: '0.35rem 0.75rem',
-                borderRadius: '0.45rem',
-                fontSize: '0.78rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-                background: datePreset === preset ? '#ea580c' : '#f5f5f4',
-                color: datePreset === preset ? '#fff' : '#57534e',
-                border: 'none',
-                transition: 'all 0.15s ease',
+                display: 'inline-flex',
+                background: '#f5f5f4',
+                padding: '0.2rem',
+                borderRadius: '0.55rem',
+                gap: '0.15rem',
               }}
             >
-              {preset === 'today' ? 'Today' : preset === 'yesterday' ? 'Yesterday' : preset === 'week' ? '7 Days' : preset === 'month' ? 'This Month' : preset === 'all' ? 'All Time' : 'Custom'}
-            </button>
-          ))}
-
-          {datePreset === 'custom' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginLeft: '0.5rem' }}>
-              <input
-                type="date"
-                value={customFrom}
-                onChange={(e) => setCustomFrom(e.target.value)}
-                style={{ padding: '0.3rem 0.5rem', borderRadius: '0.4rem', border: '1px solid #d6d3d1', fontSize: '0.75rem' }}
-              />
-              <span style={{ fontSize: '0.75rem', color: '#78716c' }}>to</span>
-              <input
-                type="date"
-                value={customTo}
-                onChange={(e) => setCustomTo(e.target.value)}
-                style={{ padding: '0.3rem 0.5rem', borderRadius: '0.4rem', border: '1px solid #d6d3d1', fontSize: '0.75rem' }}
-              />
+              {(['today', 'yesterday', 'week', 'month', 'all', 'custom'] as const).map((preset) => (
+                <button
+                  key={preset}
+                  onClick={() => setDatePreset(preset)}
+                  style={{
+                    padding: '0.35rem 0.75rem',
+                    borderRadius: '0.45rem',
+                    fontSize: '0.76rem',
+                    fontWeight: datePreset === preset ? 750 : 600,
+                    cursor: 'pointer',
+                    background: datePreset === preset ? '#ea580c' : 'transparent',
+                    color: datePreset === preset ? '#fff' : '#57534e',
+                    border: 'none',
+                    boxShadow: datePreset === preset ? '0 1px 3px rgba(234, 88, 12, 0.25)' : 'none',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  {preset === 'today' ? 'Today' : preset === 'yesterday' ? 'Yesterday' : preset === 'week' ? '7 Days' : preset === 'month' ? 'This Month' : preset === 'all' ? 'All Time' : 'Custom'}
+                </button>
+              ))}
             </div>
-          )}
+
+            {/* Custom Date Range Picker */}
+            {datePreset === 'custom' && (
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                  marginLeft: '0.35rem',
+                  background: '#fff8f5',
+                  padding: '0.2rem 0.5rem',
+                  borderRadius: '0.5rem',
+                  border: '1px solid #fed7aa',
+                }}
+              >
+                <input
+                  type="date"
+                  value={customFrom}
+                  onChange={(e) => setCustomFrom(e.target.value)}
+                  style={{
+                    padding: '0.25rem 0.45rem',
+                    borderRadius: '0.35rem',
+                    border: '1px solid #e7e5e4',
+                    fontSize: '0.74rem',
+                    background: '#fff',
+                    outline: 'none',
+                  }}
+                />
+                <span style={{ fontSize: '0.72rem', color: '#c2410c', fontWeight: 600 }}>to</span>
+                <input
+                  type="date"
+                  value={customTo}
+                  onChange={(e) => setCustomTo(e.target.value)}
+                  style={{
+                    padding: '0.25rem 0.45rem',
+                    borderRadius: '0.35rem',
+                    border: '1px solid #e7e5e4',
+                    fontSize: '0.74rem',
+                    background: '#fff',
+                    outline: 'none',
+                  }}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Right: Save Period Preference Button */}
+          <button
+            type="button"
+            onClick={handleSavePeriodPreference}
+            title="Save current period filter selection as your default report view"
+            style={{
+              padding: '0.4rem 0.85rem',
+              borderRadius: '0.5rem',
+              fontSize: '0.75rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+              background: savedPreset === datePreset ? '#fff7ed' : '#ffffff',
+              color: '#c2410c',
+              border: '1px solid ' + (savedPreset === datePreset ? '#ea580c' : '#fed7aa'),
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+              transition: 'all 0.15s ease',
+              marginLeft: 'auto',
+            }}
+          >
+            <span>💾</span>
+            <span>Save as Default</span>
+            {savedPreset === datePreset && (
+              <span
+                style={{
+                  background: '#ea580c',
+                  color: '#fff',
+                  fontSize: '0.6rem',
+                  padding: '0.1rem 0.4rem',
+                  borderRadius: '999px',
+                  fontWeight: 800,
+                  letterSpacing: '0.04em',
+                }}
+              >
+                DEFAULT
+              </span>
+            )}
+          </button>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
-          <select
-            value={selectedTerminal}
-            onChange={(e) => setSelectedTerminal(e.target.value)}
-            style={{
-              padding: '0.35rem 0.65rem',
-              borderRadius: '0.45rem',
-              border: '1px solid #e7e5e4',
-              fontSize: '0.78rem',
-              background: '#fafaf9',
-              color: '#44403c',
-              cursor: 'pointer',
-            }}
-          >
-            <option value="all">All Terminals</option>
-            {terminals.map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </select>
+        {/* Row 2: Secondary Filters (Terminals & Dining Type) */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            paddingTop: '0.65rem',
+            borderTop: '1px solid #f5f0eb',
+            gap: '0.75rem',
+            flexWrap: 'wrap',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#a89e98', letterSpacing: '0.05em' }}>
+              FILTER BY:
+            </span>
 
-          <select
-            value={selectedDiningType}
-            onChange={(e) => setSelectedDiningType(e.target.value)}
-            style={{
-              padding: '0.35rem 0.65rem',
-              borderRadius: '0.45rem',
-              border: '1px solid #e7e5e4',
-              fontSize: '0.78rem',
-              background: '#fafaf9',
-              color: '#44403c',
-              cursor: 'pointer',
-            }}
-          >
-            <option value="all">All Dining Types</option>
-            <option value="dine-in">Dine In</option>
-            <option value="takeout">Takeout</option>
-          </select>
+            <select
+              value={selectedTerminal}
+              onChange={(e) => setSelectedTerminal(e.target.value)}
+              style={{
+                padding: '0.35rem 0.65rem',
+                borderRadius: '0.45rem',
+                border: '1px solid #e7e5e4',
+                fontSize: '0.76rem',
+                background: '#fafaf9',
+                color: '#44403c',
+                cursor: 'pointer',
+                fontWeight: 500,
+              }}
+            >
+              <option value="all">All Terminals</option>
+              {terminals.map((t) => (
+                <option key={t} value={t}>
+                  Terminal {t}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={selectedDiningType}
+              onChange={(e) => setSelectedDiningType(e.target.value)}
+              style={{
+                padding: '0.35rem 0.65rem',
+                borderRadius: '0.45rem',
+                border: '1px solid #e7e5e4',
+                fontSize: '0.76rem',
+                background: '#fafaf9',
+                color: '#44403c',
+                cursor: 'pointer',
+                fontWeight: 500,
+              }}
+            >
+              <option value="all">All Dining Types</option>
+              <option value="dine-in">Dine In Only</option>
+              <option value="takeout">Takeout Only</option>
+            </select>
+
+            {(selectedTerminal !== 'all' || selectedDiningType !== 'all') && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedTerminal('all')
+                  setSelectedDiningType('all')
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#dc2626',
+                  fontSize: '0.72rem',
+                  fontWeight: 650,
+                  cursor: 'pointer',
+                  padding: '0.2rem 0.4rem',
+                }}
+              >
+                ✕ Reset Filters
+              </button>
+            )}
+          </div>
+
+          <div style={{ fontSize: '0.72rem', color: '#78716c' }}>
+            Showing <strong>{filteredOrders.length}</strong> matching orders
+          </div>
         </div>
       </section>
 
@@ -1029,6 +1209,7 @@ export function ReportsPage() {
           </section>
         </>
       )}
+      {toastMessage && <Toast message={toastMessage} onClose={() => setToastMessage(null)} />}
     </AdminShell>
   )
 }

@@ -29,4 +29,13 @@ describe('customer journey foundation', () => {
     expect(await screen.findByRole('heading', { name: 'All Items' })).toBeInTheDocument()
     expect(useKioskStore.getState().items).toHaveLength(1)
   })
+
+  it('renders maintenance out-of-service screen when terminal is locked', async () => {
+    useKioskStore.getState().setMaintenance(true)
+    render(<App />)
+
+    expect(screen.getByText(/terminal under maintenance/i)).toBeInTheDocument()
+    expect(screen.getByText(/out of service/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /staff \/ manager unlock/i })).toBeInTheDocument()
+  })
 })

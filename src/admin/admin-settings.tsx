@@ -323,14 +323,63 @@ export function SettingsPage() {
               {/* Left Column: All Controls & Presets */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
-                  <label className="settings-field">
-                    Background Image URL
-                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <label className="settings-field" style={{ margin: 0 }}>
+                    Background Media URL
+                  </label>
+
+                  {/* Polished URL Input & Upload Row */}
+                  <div style={{ display: 'flex', gap: '0.55rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <div
+                      style={{
+                        position: 'relative',
+                        flex: '1 1 240px',
+                        minWidth: 0,
+                        display: 'flex',
+                        alignItems: 'center',
+                      }}
+                    >
+                      {/* Vector Link Icon */}
+                      <svg
+                        width="15"
+                        height="15"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="#ea580c"
+                        strokeWidth="2.2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        style={{
+                          position: 'absolute',
+                          left: '0.85rem',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          pointerEvents: 'none',
+                          opacity: 0.85,
+                        }}
+                      >
+                        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                      </svg>
+
                       <input
                         type="text"
-                        style={{ flex: 1 }}
+                        style={{
+                          width: '100%',
+                          height: '2.85rem',
+                          boxSizing: 'border-box',
+                          paddingLeft: '2.35rem',
+                          paddingRight: settings.welcome_background_url ? '2.2rem' : '0.85rem',
+                          borderRadius: '0.6rem',
+                          border: '1.5px solid #e7e5e4',
+                          background: '#ffffff',
+                          fontSize: '0.8rem',
+                          color: '#1c1917',
+                          outline: 'none',
+                          boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+                          transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
+                        }}
                         value={settings.welcome_background_url ?? ''}
-                        placeholder="https://... or upload custom image"
+                        placeholder="Paste image/video URL (e.g. https://...)"
                         onChange={(event) =>
                           setSettings({
                             ...settings,
@@ -338,59 +387,98 @@ export function SettingsPage() {
                           })
                         }
                       />
-                      <label
-                        htmlFor="welcome-bg-file-input"
-                        style={{
-                          background: '#fff7ed',
-                          border: '1.5px solid #fed7aa',
-                          color: '#ea580c',
-                          borderRadius: '0.55rem',
-                          padding: '0 0.95rem',
-                          minHeight: '2.8rem',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '0.4rem',
-                          fontWeight: 750,
-                          fontSize: '0.74rem',
-                          cursor: 'pointer',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        📁 Upload Media (Image / Video)
-                      </label>
-                      <input
-                        id="welcome-bg-file-input"
-                        type="file"
-                        accept="image/*,video/*"
-                        onChange={handleBgMediaUpload}
-                        style={{ display: 'none' }}
-                      />
+
+                      {/* Clear Button inside Input */}
                       {settings.welcome_background_url && (
                         <button
                           type="button"
                           onClick={() => {
                             setSettings({ ...settings, welcome_background_url: null })
                             localStorage.removeItem('kiosk_welcome_background')
-                            showToast('Reset welcome background to default theme.', 'info')
                           }}
+                          title="Clear input"
                           style={{
-                            background: '#fef2f2',
-                            border: '1px solid #fecaca',
-                            color: '#dc2626',
-                            borderRadius: '0.55rem',
-                            padding: '0 0.85rem',
-                            minHeight: '2.8rem',
-                            fontWeight: 700,
-                            fontSize: '0.72rem',
+                            position: 'absolute',
+                            right: '0.65rem',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            background: '#f5f5f4',
+                            border: 'none',
+                            borderRadius: '50%',
+                            width: '1.35rem',
+                            height: '1.35rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
                             cursor: 'pointer',
-                            whiteSpace: 'nowrap',
+                            color: '#78716c',
+                            fontSize: '0.68rem',
+                            padding: 0,
+                            lineHeight: 1,
+                            transition: 'background 0.15s ease',
                           }}
                         >
-                          ✕ Reset
+                          ✕
                         </button>
                       )}
                     </div>
-                  </label>
+
+                    {/* Upload Media Button */}
+                    <label
+                      htmlFor="welcome-bg-file-input"
+                      style={{
+                        background: 'linear-gradient(180deg, #fffaf5 0%, #fff1e6 100%)',
+                        border: '1.5px solid #fed7aa',
+                        color: '#c2410c',
+                        borderRadius: '0.6rem',
+                        padding: '0 1rem',
+                        height: '2.85rem',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.45rem',
+                        fontWeight: 750,
+                        fontSize: '0.76rem',
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                        flexShrink: 0,
+                        boxShadow: '0 1px 2px rgba(234, 88, 12, 0.08)',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      <svg
+                        width="15"
+                        height="15"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="17 8 12 3 7 8" />
+                        <line x1="12" y1="3" x2="12" y2="15" />
+                      </svg>
+                      <span>Upload Media</span>
+                    </label>
+                    <input
+                      id="welcome-bg-file-input"
+                      type="file"
+                      accept="image/*,video/*"
+                      onChange={handleBgMediaUpload}
+                      style={{ display: 'none' }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.1rem' }}>
+                    <span style={{ fontSize: '0.67rem', color: '#78716c' }}>
+                      Supports <strong style={{ color: '#44403c' }}>JPG, PNG, WebP, MP4, WebM</strong>
+                    </span>
+                    <span style={{ color: '#d6d3d1' }}>•</span>
+                    <span style={{ fontSize: '0.67rem', color: '#78716c' }}>
+                      Instant live totem preview
+                    </span>
+                  </div>
                 </div>
 
                 {/* Preset Wallpaper Gallery */}

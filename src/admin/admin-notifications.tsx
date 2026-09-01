@@ -13,6 +13,7 @@ export function AdminNotificationCenter() {
   const [isOpen, setIsOpen] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState<NotificationCategory>('all')
   const popoverRef = useRef<HTMLDivElement>(null)
+  const tabsRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
 
   const token = useAdminStore((state) => state.token)
@@ -163,32 +164,69 @@ export function AdminNotificationCenter() {
             </div>
           </div>
 
-          {/* Filter Tabs */}
-          <div className="admin-notif-tabs">
-            {(
-              [
-                { id: 'all', label: 'All' },
-                { id: 'orders', label: '🛎️ Orders' },
-                { id: 'system', label: '⚡ System' },
-                { id: 'kiosks', label: '🖥️ Terminals' },
-                { id: 'catalog', label: '📋 Catalog' },
-              ] as const
-            ).map((tab) => {
-              const count =
-                tab.id === 'all'
-                  ? notifications.length
-                  : notifications.filter((n) => n.category === tab.id).length
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  className={`admin-notif-tab ${selectedCategory === tab.id ? 'active' : ''}`}
-                  onClick={() => setSelectedCategory(tab.id)}
-                >
-                  {tab.label} ({count})
-                </button>
-              )
-            })}
+          {/* Filter Tabs with Left/Right Buttons and Smooth Scroll */}
+          <div className="admin-notif-tabs-wrapper">
+            <button
+              type="button"
+              className="admin-notif-tabs-scroll-btn admin-notif-tabs-scroll-btn--left"
+              aria-label="Scroll tabs left"
+              onClick={() => {
+                if (tabsRef.current) {
+                  tabsRef.current.scrollBy({ left: -120, behavior: 'smooth' })
+                }
+              }}
+            >
+              &#8249;
+            </button>
+            <div
+              className="admin-notif-tabs"
+              ref={tabsRef}
+              onWheel={(e) => {
+                if (e.deltaY !== 0) {
+                  e.currentTarget.scrollLeft += e.deltaY
+                }
+              }}
+            >
+              {(
+                [
+                  { id: 'all', label: 'All' },
+                  { id: 'orders', label: '🛎️ Orders' },
+                  { id: 'system', label: '⚡ System' },
+                  { id: 'kiosks', label: '🖥️ Terminals' },
+                  { id: 'catalog', label: '📋 Catalog' },
+                ] as const
+              ).map((tab) => {
+                const count =
+                  tab.id === 'all'
+                    ? notifications.length
+                    : notifications.filter((n) => n.category === tab.id).length
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    className={`admin-notif-tab ${selectedCategory === tab.id ? 'active' : ''}`}
+                    onClick={(e) => {
+                      setSelectedCategory(tab.id)
+                      e.currentTarget.scrollIntoView({ behavior: 'smooth', inline: 'nearest', block: 'nearest' })
+                    }}
+                  >
+                    {tab.label} ({count})
+                  </button>
+                )
+              })}
+            </div>
+            <button
+              type="button"
+              className="admin-notif-tabs-scroll-btn admin-notif-tabs-scroll-btn--right"
+              aria-label="Scroll tabs right"
+              onClick={() => {
+                if (tabsRef.current) {
+                  tabsRef.current.scrollBy({ left: 120, behavior: 'smooth' })
+                }
+              }}
+            >
+              &#8250;
+            </button>
           </div>
 
           {/* List */}
@@ -234,8 +272,11 @@ export function AdminNotificationCenter() {
 
           {/* Footer */}
           <div className="admin-notif-popover__footer">
-            <span>🟢 Realtime kiosk & POS activity</span>
-            <span>Refreshes automatically</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+              <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#22c55e', display: 'inline-block' }} />
+              Realtime kiosk &amp; POS activity
+            </span>
+            <span style={{ color: '#a89e98', fontSize: '0.62rem' }}>Auto-synced</span>
           </div>
         </div>
       )}

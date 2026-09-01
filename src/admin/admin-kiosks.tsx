@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { AdminShell } from './admin-shell'
 import { useAdminStore } from './admin-store'
 import { useAdminNotificationsStore } from './admin-notifications-store'
-import { createActivationCode, getOrders, getSettings, type AdminOrder, type AdminSettings } from './admin-api'
+import { createActivationCode, getOrders, getSettings, updateTerminal, sendTerminalCommand, type AdminOrder, type AdminSettings } from './admin-api'
 import { Toast } from '../components/toast'
 import { formatPhDate } from '../domain/datetime'
 
@@ -128,14 +128,36 @@ export function KiosksPage() {
     const updated = terminals.map((t) => {
       if (t.id === id) {
         const nextStatus: KioskTerminal['status'] = t.status === 'maintenance' ? 'online' : 'maintenance'
-        showToast(`${t.id} status updated to ${nextStatus.toUpperCase()}`)
+        const isMaint = nextStatus === 'maintenance'
+
+        // Persist directly for customer kiosk screens
+        localStorage.setItem(`kiosk_terminal_${id}_status`, nextStatus)
+        localStorage.setItem('kiosk_is_maintenance', isMaint ? 'true' : 'false')
+
+        // Dispatch events so customer view updates in real-time across tabs/windows
+        window.dispatchEvent(
+          new CustomEvent('kiosk:terminal-status-changed', {
+            detail: { id, status: nextStatus },
+          })
+        )
+
+        // Sync with backend API
+        updateTerminal(token, id, { status: nextStatus }).catch(() => undefined)
+
+        showToast(
+          isMaint
+            ? `🔒 ${t.id} is now LOCKED in Maintenance Mode`
+            : `🔓 ${t.id} is now UNLOCKED & Online`
+        )
+
         useAdminNotificationsStore.getState().addNotification({
-          title: `Terminal ${nextStatus === 'maintenance' ? 'Locked (Maintenance)' : 'Online (Unlocked)'}`,
-          message: `${t.id} (${t.location}) status changed to ${nextStatus.toUpperCase()}.`,
+          title: `Terminal ${isMaint ? 'Locked (Maintenance)' : 'Online (Unlocked)'}`,
+          message: `${t.id} (${t.location}) status changed to ${nextStatus.toUpperCase()}. Customer screen is now ${isMaint ? 'showing Out of Service' : 'active'}.`,
           category: 'kiosks',
-          severity: nextStatus === 'maintenance' ? 'warning' : 'success',
+          severity: isMaint ? 'warning' : 'success',
           link: '/admin/kiosks',
         })
+
         return { ...t, status: nextStatus }
       }
       return t
@@ -144,6 +166,8 @@ export function KiosksPage() {
   }
 
   const reloadTerminal = (id: string) => {
+    sendTerminalCommand(token, id, 'reload').catch(() => undefined)
+    window.dispatchEvent(new CustomEvent('kiosk:terminal-reload', { detail: { id } }))
     showToast(`🔄 Reload command sent to ${id}.`)
   }
 

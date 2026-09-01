@@ -117,3 +117,21 @@ export function formatPhDate(value: string | Date | number, tz?: string): string
     day: 'numeric',
   }).format(date)
 }
+
+/**
+ * Format date as YYYY-MM-DD in active or specified timezone for accurate date comparisons
+ */
+export function getTzDateString(value: string | Date | number, tz?: string): string {
+  const date = parseDate(value)
+  if (isNaN(date.getTime())) return ''
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: tz || getActiveTimezone(),
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date)
+  const y = parts.find((p) => p.type === 'year')?.value
+  const m = parts.find((p) => p.type === 'month')?.value
+  const d = parts.find((p) => p.type === 'day')?.value
+  return `${y}-${m}-${d}`
+}

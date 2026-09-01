@@ -39,12 +39,25 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 .simple-header { align-items: center; display: flex; justify-content: space-between; padding: 1.5rem 4vw; }
 .header-spacer { width: 3.3rem; }
 
-.welcome { align-items: center; background: #fff; display: flex; justify-content: center; min-height: 100dvh; overflow: hidden; padding: clamp(2rem, 5vh, 4rem) 1.5rem 5rem; position: relative; }
+.welcome {
+  align-items: center;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 100dvh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: clamp(2rem, 4vh, 3.5rem) 1.5rem clamp(1.5rem, 3vh, 2.5rem);
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+}
 .welcome--has-bg { background-position: center; background-repeat: no-repeat; background-size: cover; }
 .welcome__backdrop { background: radial-gradient(circle at center, rgba(0, 0, 0, 0.15) 0%, rgba(0, 0, 0, 0.45) 100%); inset: 0; position: absolute; z-index: 0; }
 .welcome--has-bg .welcome__content { background: rgba(255, 255, 255, 0.92); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.6); border-radius: 1.5rem; box-shadow: 0 1.5rem 4rem rgba(0, 0, 0, 0.22); padding: clamp(2rem, 4vh, 3rem) clamp(1.5rem, 3vw, 2.5rem); position: relative; z-index: 1; }
-.welcome__content { align-items: center; display: flex; flex-direction: column; margin: auto; max-width: 38rem; text-align: center; width: 100%; }
-.welcome__content .brand { margin-bottom: clamp(2.5rem, 6vh, 5rem); }
+.welcome__content { align-items: center; display: flex; flex-direction: column; margin: auto 0; max-width: 38rem; text-align: center; width: 100%; z-index: 1; }
+.welcome__content .brand { margin-bottom: clamp(2rem, 4vh, 3.5rem); }
 .welcome__content .brand__mark { background: #fff2eb; color: #d95820; }
 .welcome__content .brand__mark span { color: #d95820; }
 .welcome__message { align-items: center; display: flex; flex-direction: column; }
@@ -54,7 +67,7 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 .welcome h1 em { color: #d95820; font-style: normal; font-weight: 700; }
 h1 em { color: #bd532f; font-weight: 400; }
 .welcome__lead { color: #9a8c89; font-size: clamp(.85rem, 1.55vw, 1.05rem); line-height: 1.5; margin: 1rem 0 0; }
-.welcome__visual { align-items: center; display: flex; height: clamp(10rem, 22vh, 15rem); justify-content: center; margin: clamp(2rem, 5vh, 4rem) 0; position: relative; width: clamp(10rem, 22vh, 15rem); }
+.welcome__visual { align-items: center; display: flex; height: clamp(9rem, 18vh, 14rem); justify-content: center; margin: clamp(1.5rem, 3.5vh, 3rem) 0; position: relative; width: clamp(9rem, 18vh, 14rem); }
 .welcome__visual-ring { background: #fff2eb; border-radius: 50%; box-shadow: 0 1rem 2.5rem #a8492417; height: 100%; position: absolute; width: 100%; }
 .welcome__visual-ring::after { border: 1px solid #e36a3638; border-radius: 50%; content: ''; inset: .7rem; position: absolute; }
 .welcome__visual img { filter: drop-shadow(0 .8rem .65rem #4b211b2b); height: 78%; object-fit: contain; position: relative; width: 88%; z-index: 1; }
@@ -63,7 +76,7 @@ h1 em { color: #bd532f; font-weight: 400; }
 .welcome__start:active { transform: scale(.985); }
 .welcome__start strong { align-items: center; background: #ffffff24; border-radius: 50%; display: flex; font-size: 1.25rem; height: 2rem; justify-content: center; width: 2rem; }
 .welcome__hint { color: #a39793; font-size: clamp(.65rem, 1.1vw, .78rem); margin: .85rem 0 0; }
-.welcome__footer { color: #9c8e8a; font-size: clamp(.65rem, 1.1vw, .78rem); margin-top: clamp(1.25rem, 2.5vh, 2rem); text-align: center; }
+.welcome__footer { color: #9c8e8a; font-size: clamp(.65rem, 1.1vw, .78rem); margin-top: auto; padding-top: 1rem; text-align: center; width: 100%; z-index: 1; }
 
 .welcome--custom-bg {
   background-size: cover !important;

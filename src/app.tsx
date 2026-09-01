@@ -8,14 +8,34 @@ import { ProductScreen } from './screens/product'
 import { CartScreen } from './screens/cart'
 import { PaymentScreen } from './screens/payment'
 import { TicketScreen } from './screens/ticket'
-import { useKioskStore } from './store/kiosk-store'
+import { MaintenanceScreen } from './screens/maintenance'
+import { useKioskStore, checkIsTerminalMaintenance } from './store/kiosk-store'
 
 export function App() {
   const fetchSettings = useKioskStore((state) => state.fetchSettings)
+  const isMaintenance = useKioskStore((state) => state.isMaintenance)
+  const setMaintenance = useKioskStore((state) => state.setMaintenance)
+  const terminalId = useKioskStore((state) => state.terminalId)
 
   useEffect(() => {
     fetchSettings()
-  }, [fetchSettings])
+
+    const syncStatus = () => {
+      setMaintenance(checkIsTerminalMaintenance(terminalId))
+    }
+
+    window.addEventListener('kiosk:terminal-status-changed', syncStatus)
+    window.addEventListener('storage', syncStatus)
+
+    return () => {
+      window.removeEventListener('kiosk:terminal-status-changed', syncStatus)
+      window.removeEventListener('storage', syncStatus)
+    }
+  }, [fetchSettings, setMaintenance, terminalId])
+
+  if (isMaintenance) {
+    return <MaintenanceScreen />
+  }
 
   return <BrowserRouter><IdleGuard /><Routes>
     <Route path="/" element={<WelcomeScreen />} />

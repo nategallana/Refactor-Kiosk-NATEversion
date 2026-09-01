@@ -98,8 +98,8 @@ export function AdminTimeDropdown() {
         style={{
           display: 'inline-flex',
           alignItems: 'center',
-          gap: '0.55rem',
-          padding: '0.45rem 0.85rem',
+          gap: '0.45rem',
+          padding: '0.45rem 0.8rem',
           background: isOpen ? '#fff1e6' : '#fff8f5',
           border: '1px solid ' + (isOpen ? '#ea580c' : '#fed7aa'),
           borderRadius: '0.65rem',
@@ -109,12 +109,14 @@ export function AdminTimeDropdown() {
           fontSize: '0.78rem',
           fontWeight: 700,
           userSelect: 'none',
+          whiteSpace: 'nowrap',
+          flexShrink: 0,
         }}
       >
-        <span style={{ fontSize: '0.95rem' }} aria-hidden="true">
+        <span style={{ fontSize: '0.9rem' }} aria-hidden="true">
           🕒
         </span>
-        <span style={{ fontFamily: 'monospace', letterSpacing: '0.02em', color: '#c2410c' }}>
+        <span style={{ fontFamily: 'monospace', letterSpacing: '0.02em', color: '#c2410c', whiteSpace: 'nowrap' }}>
           {formattedTime}
         </span>
         <span
@@ -122,15 +124,17 @@ export function AdminTimeDropdown() {
             background: '#ea580c',
             color: '#ffffff',
             fontSize: '0.62rem',
-            padding: '0.15rem 0.4rem',
+            padding: '0.12rem 0.38rem',
             borderRadius: '0.35rem',
             fontWeight: 800,
             textTransform: 'uppercase',
+            whiteSpace: 'nowrap',
+            flexShrink: 0,
           }}
         >
           {activeOption.offset}
         </span>
-        <span style={{ fontSize: '0.65rem', color: '#78716c', transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s ease' }}>
+        <span style={{ fontSize: '0.62rem', color: '#78716c', transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s ease', flexShrink: 0 }}>
           ▼
         </span>
       </button>

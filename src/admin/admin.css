@@ -153,7 +153,13 @@
   display: flex;
   justify-content: space-between;
   min-height: 5.4rem;
-  padding: 1.2rem clamp(1.25rem, 3vw, 2.5rem);
+  padding: 1.1rem clamp(1.25rem, 2.5vw, 2.2rem);
+  gap: 1rem;
+}
+
+.admin-header__title {
+  flex-shrink: 1;
+  min-width: 0;
 }
 
 .admin-header__title p,
@@ -170,15 +176,18 @@
 .admin-header__title h1 {
   color: var(--admin-ink);
   font-family: Georgia, serif;
-  font-size: clamp(1.25rem, 2vw, 1.65rem);
+  font-size: clamp(1.25rem, 1.8vw, 1.55rem);
   font-weight: 700;
   margin: 0;
+  white-space: nowrap;
 }
 
 .admin-header__tools {
   align-items: center;
   display: flex;
-  gap: 0.9rem;
+  gap: 0.75rem;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .admin-live {
@@ -1657,13 +1666,58 @@
   background: #ffedd5;
 }
 
-.admin-notif-tabs {
+.admin-notif-tabs-wrapper {
+  align-items: center;
   background: #ffffff;
   border-bottom: 1px solid #f0e8e2;
   display: flex;
-  gap: 0.3rem;
+  position: relative;
+  width: 100%;
+}
+
+.admin-notif-tabs-scroll-btn {
+  align-items: center;
+  background: #ffffff;
+  border: 0;
+  color: #c2410c;
+  cursor: pointer;
+  display: flex;
+  font-size: 1.15rem;
+  font-weight: 700;
+  height: 100%;
+  justify-content: center;
+  line-height: 1;
+  padding: 0 0.45rem;
+  transition: all 0.15s ease;
+  user-select: none;
+  z-index: 2;
+  flex-shrink: 0;
+}
+
+.admin-notif-tabs-scroll-btn:hover {
+  background: #fff7ed;
+  color: #ea580c;
+}
+
+.admin-notif-tabs-scroll-btn:active {
+  transform: scale(0.9);
+}
+
+.admin-notif-tabs {
+  background: #ffffff;
+  display: flex;
+  flex: 1;
+  gap: 0.35rem;
   overflow-x: auto;
-  padding: 0.45rem 0.8rem;
+  padding: 0.45rem 0.5rem;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.admin-notif-tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .admin-notif-tab {
@@ -1677,6 +1731,7 @@
   padding: 0.3rem 0.55rem;
   white-space: nowrap;
   transition: all 0.15s;
+  flex-shrink: 0;
 }
 
 .admin-notif-tab:hover {
@@ -1694,6 +1749,7 @@
   flex-direction: column;
   max-height: 20rem;
   overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .admin-notif-item {
@@ -1709,6 +1765,7 @@
   transition: background 0.15s;
   width: 100%;
   border-left: 3px solid transparent;
+  box-sizing: border-box;
 }
 
 .admin-notif-item:hover {
@@ -1808,4 +1865,14 @@
 .admin-notif-popover__footer {
   align-items: center;
   background: #faf7f5;
+  border-top: 1px solid #f0e8e2;
+  color: #78716c;
+  display: flex;
+  font-size: 0.65rem;
+  font-weight: 600;
+  justify-content: space-between;
+  padding: 0.6rem 1rem;
+  width: 100%;
+  box-sizing: border-box;
+  flex-shrink: 0;
 }
