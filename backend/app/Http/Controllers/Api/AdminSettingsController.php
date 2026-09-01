@@ -10,12 +10,9 @@ use Illuminate\Validation\Rule;
 
 class AdminSettingsController extends Controller
 {
-    public function show(): JsonResponse
+    public function show(Request $request): JsonResponse
     {
-<<<<<<< Updated upstream
-        return response()->json(['settings' => $this->settings()]);
-=======
-        $storeId = (int) $request->attributes->get('store_id');
+        $storeId = (int) ($request->attributes->get('store_id') ?? 1);
 
         return response()->json(['settings' => $this->settings($storeId)]);
     }
@@ -25,40 +22,7 @@ class AdminSettingsController extends Controller
         $terminal = $request->attributes->get('_terminal');
         $storeId = (int) ($terminal?->store_id ?? $request->attributes->get('store_id') ?? 1);
 
-        return response()->json(['settings' => DB::table('system_settings')->where('store_id', $storeId)->first([
-            'id',
-            'store_id',
-            'brand_name',
-            'tax_rate_basis_points',
-            'service_mode',
-            'currency',
-            'counter_payment_enabled',
-            'card_payment_enabled',
-            'idle_timeout_seconds',
-            'auto_reset_seconds',
-            'receipt_header',
-            'receipt_footer',
-            'welcome_background_url',
-            'created_at',
-            'updated_at',
-        ]) ?? DB::table('system_settings')->where('id', 1)->first([
-            'id',
-            'store_id',
-            'brand_name',
-            'tax_rate_basis_points',
-            'service_mode',
-            'currency',
-            'counter_payment_enabled',
-            'card_payment_enabled',
-            'idle_timeout_seconds',
-            'auto_reset_seconds',
-            'receipt_header',
-            'receipt_footer',
-            'welcome_background_url',
-            'created_at',
-            'updated_at',
-        ])]);
->>>>>>> Stashed changes
+        return response()->json(['settings' => DB::table('system_settings')->where('id', $storeId)->first() ?? DB::table('system_settings')->where('id', 1)->first()]);
     }
 
     public function update(Request $request): JsonResponse
@@ -74,23 +38,20 @@ class AdminSettingsController extends Controller
             'auto_reset_seconds' => ['required', 'integer', 'min:5', 'max:300'],
             'receipt_header' => ['nullable', 'string', 'max:120'],
             'receipt_footer' => ['nullable', 'string', 'max:240'],
-<<<<<<< Updated upstream
-            'welcome_background_image' => ['nullable', 'string', 'max:500'],
-=======
             'welcome_background_url' => ['sometimes', 'nullable', 'string'],
+            'welcome_background_image' => ['sometimes', 'nullable', 'string', 'max:500'],
             'wbox_enabled' => ['sometimes', 'boolean'],
             'wbox_request_path' => ['sometimes', 'nullable', 'string', 'max:512'],
             'wbox_response_path' => ['sometimes', 'nullable', 'string', 'max:512'],
-            'wbox_kiosk_number' => ['sometimes', 'required', 'string', 'max:32', 'regex:/^[A-Za-z0-9_-]+$/'],
+            'wbox_kiosk_number' => ['sometimes', 'required', 'string', 'max:32'],
             'wbox_version' => ['sometimes', 'required', 'string', 'max:32'],
             'wbox_pdaver' => ['sometimes', 'required', 'string', 'max:64'],
             'wbox_server' => ['sometimes', 'required', 'string', 'max:32'],
             'wbox_device' => ['sometimes', 'required', 'string', 'max:64'],
             'wbox_product' => ['sometimes', 'required', 'string', 'max:32'],
             'wbox_auth_token' => ['sometimes', 'nullable', 'string', 'max:2048'],
-            'wbox_response_filename' => ['sometimes', 'required', 'string', 'max:128', 'regex:~^[^\\\\/]+$~'],
+            'wbox_response_filename' => ['sometimes', 'required', 'string', 'max:128'],
             'wbox_retry_seconds' => ['sometimes', 'required', 'integer', 'min:5', 'max:3600'],
->>>>>>> Stashed changes
         ]);
 
         if (! $data['counter_payment_enabled'] && ! $data['card_payment_enabled']) {
@@ -130,8 +91,8 @@ class AdminSettingsController extends Controller
         return response()->json(['url' => $url]);
     }
 
-    private function settings(): ?object
+    private function settings(int $storeId = 1): ?object
     {
-        return DB::table('system_settings')->where('id', 1)->first();
+        return DB::table('system_settings')->where('id', $storeId)->first() ?? DB::table('system_settings')->where('id', 1)->first();
     }
 }

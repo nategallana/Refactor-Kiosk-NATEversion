@@ -1,27 +1,16 @@
-<<<<<<< Updated upstream
-import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react'
-import { getSettings, updateSettings, uploadWelcomeBackground, type AdminSettings } from './admin-api'
-=======
 import { useEffect, useState, type FormEvent, type ChangeEvent } from 'react'
 import { getSettings, getWboxStatus, updateSettings, type AdminSettings, type AdminSettingsUpdate } from './admin-api'
->>>>>>> Stashed changes
 import { AdminShell } from './admin-shell'
 import { useAdminStore } from './admin-store'
 import { Toast, type ToastType } from '../components/toast'
 import { useKioskStore } from '../store/kiosk-store'
 import { isVideoUrl } from '../domain/media'
 import { useAdminNotificationsStore } from './admin-notifications-store'
+import { AVAILABLE_TIMEZONES, getActiveTimezone, setActiveTimezone } from '../domain/datetime'
 
-<<<<<<< Updated upstream
-type EditableSettings = Omit<AdminSettings, 'id' | 'created_at' | 'updated_at'>
-const editable = ({ id: _id, created_at: _createdAt, updated_at: _updatedAt, ...values }: AdminSettings) => {
-  void _id; void _createdAt; void _updatedAt
-  return values
-=======
 type EditableSettings = AdminSettingsUpdate & {
   wbox_auth_token_configured: boolean
   wbox_auth_token: string
->>>>>>> Stashed changes
 }
 
 const editable = ({ id: _id, created_at: _createdAt, updated_at: _updatedAt, ...values }: AdminSettings): EditableSettings => {
@@ -31,6 +20,7 @@ const editable = ({ id: _id, created_at: _createdAt, updated_at: _updatedAt, ...
   return {
     ...values,
     welcome_background_url: values.welcome_background_url ?? null,
+    wbox_auth_token_configured: Boolean(values.wbox_auth_token_configured),
     wbox_auth_token: '',
   }
 }
@@ -68,9 +58,6 @@ export function SettingsPage() {
   const [error, setError] = useState('')
   const [saved, setSaved] = useState('')
   const [saving, setSaving] = useState(false)
-<<<<<<< Updated upstream
-  const [uploading, setUploading] = useState(false)
-=======
   const [checkingWbox, setCheckingWbox] = useState(false)
   const [wboxStatus, setWboxStatus] = useState('')
   const [wboxReady, setWboxReady] = useState<boolean | null>(null)
@@ -80,7 +67,6 @@ export function SettingsPage() {
   const showToast = (message: string, type: ToastType = 'success') => {
     setToast({ message, type })
   }
->>>>>>> Stashed changes
 
   useEffect(() => {
     getSettings(token)
@@ -95,23 +81,6 @@ export function SettingsPage() {
       .catch((reason: Error) => setError(reason.message))
   }, [token])
 
-<<<<<<< Updated upstream
-  const handleImageUpload = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file || !settings) return
-    setUploading(true)
-    setError('')
-    try {
-      const { url } = await uploadWelcomeBackground(token, file)
-      setSettings({ ...settings, welcome_background_image: url })
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Failed to upload background image.')
-    } finally {
-      setUploading(false)
-      event.target.value = ''
-    }
-  }
-=======
   useEffect(() => {
     const handleScroll = () => {
       setShowScrollTop(window.scrollY > 200)
@@ -119,7 +88,6 @@ export function SettingsPage() {
     window.addEventListener('scroll', handleScroll, { passive: true })
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
->>>>>>> Stashed changes
 
   const save = async (event: FormEvent) => {
     event.preventDefault()
@@ -128,10 +96,6 @@ export function SettingsPage() {
     setError('')
     setSaved('')
     try {
-<<<<<<< Updated upstream
-      const result = await updateSettings(token, settings)
-      setSettings(editable(result.settings))
-=======
       const { wbox_auth_token_configured: _configured, ...payload } = settings
       void _configured
       const result = await updateSettings(token, payload)
@@ -145,8 +109,6 @@ export function SettingsPage() {
         localStorage.removeItem('kiosk_welcome_background')
       }
       useKioskStore.getState().fetchSettings().catch(() => {})
-
->>>>>>> Stashed changes
       setSaved('Settings saved successfully.')
       showToast('Settings saved successfully.', 'success')
       useAdminNotificationsStore.getState().addNotification({
@@ -165,15 +127,6 @@ export function SettingsPage() {
     }
   }
 
-<<<<<<< Updated upstream
-  return <AdminShell title="Settings" eyebrow="CONFIGURATION">
-    {!settings && !error && <div className="admin-state">Loading settings...</div>}
-    {error && !settings && <div className="admin-error">{error}</div>}
-    {settings && <form className="settings-form" onSubmit={save}>
-      <div className="settings-form__heading"><div><h2>System configuration</h2><p>Changes apply to registered kiosks after their next configuration refresh.</p></div><button className="admin-primary admin-primary--small" disabled={saving}>{saving ? 'Saving...' : 'Save changes'}</button></div>
-      {error && <div className="admin-error" role="alert">{error}</div>}
-      {saved && <div className="admin-success" role="status">{saved}</div>}
-=======
   const handleBgMediaUpload = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file) return
@@ -181,7 +134,7 @@ export function SettingsPage() {
     const reader = new FileReader()
     reader.onload = () => {
       const result = reader.result as string
-      setSettings((prev) => (prev ? { ...prev, welcome_background_url: result } : prev))
+      setSettings((prev: EditableSettings | null) => (prev ? { ...prev, welcome_background_url: result } : prev))
       localStorage.setItem('kiosk_welcome_background', result)
       const isVid = file.type.startsWith('video/')
       showToast(`📸 Custom welcome background ${isVid ? 'video' : 'image'} uploaded.`, 'info')
@@ -196,7 +149,7 @@ export function SettingsPage() {
         const dirHandle = await window.showDirectoryPicker()
         const folderName = dirHandle.name
         const defaultPath = `C:\\WBOX\\${folderName}`
-        setSettings((prev) => (prev ? { ...prev, [field]: defaultPath } : prev))
+        setSettings((prev: EditableSettings | null) => (prev ? { ...prev, [field]: defaultPath } : prev))
         showToast(`📁 Selected directory "${folderName}"`, 'info')
         return
       }
@@ -211,7 +164,7 @@ export function SettingsPage() {
       settings?.[field] || (field === 'wbox_request_path' ? 'C:\\WBOX\\Request' : 'C:\\WBOX\\Response')
     )
     if (fallback !== null) {
-      setSettings((prev) => (prev ? { ...prev, [field]: fallback.trim() || null } : prev))
+      setSettings((prev: EditableSettings | null) => (prev ? { ...prev, [field]: fallback.trim() || null } : prev))
       showToast(`📁 Updated ${fieldLabel} folder path`, 'info')
     }
   }
@@ -247,7 +200,6 @@ export function SettingsPage() {
         type={toast?.type}
         onClose={() => setToast(null)}
       />
->>>>>>> Stashed changes
 
       {!settings && !error && <div className="admin-state">Loading settings...</div>}
       {error && !settings && <div className="admin-error">{error}</div>}
@@ -327,74 +279,30 @@ export function SettingsPage() {
                 Currency
                 <input value={settings.currency} disabled />
               </label>
+              <label className="settings-field">
+                Store Timezone
+                <select
+                  value={settings.timezone || getActiveTimezone()}
+                  onChange={(event) => {
+                    const nextTz = event.target.value
+                    setSettings({
+                      ...settings,
+                      timezone: nextTz,
+                    })
+                    setActiveTimezone(nextTz)
+                    showToast(`🕒 Store timezone set to ${nextTz}`, 'info')
+                  }}
+                >
+                  {AVAILABLE_TIMEZONES.map((tz) => (
+                    <option key={tz.value} value={tz.value}>
+                      {tz.label} ({tz.offset})
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
           </section>
 
-<<<<<<< Updated upstream
-      <section className="settings-section">
-        <div className="settings-section__intro"><span>04</span><div><h3>Receipt message</h3><p>Customize the header and footer printed on receipts.</p></div></div>
-        <div className="settings-fields settings-fields--receipt">
-          <label className="settings-field settings-field--wide">Receipt header<input value={settings.receipt_header ?? ''} maxLength={120} onChange={(event) => setSettings({ ...settings, receipt_header: event.target.value || null })} /></label>
-          <label className="settings-field settings-field--wide">Receipt footer<textarea value={settings.receipt_footer ?? ''} maxLength={240} rows={3} onChange={(event) => setSettings({ ...settings, receipt_footer: event.target.value || null })} /></label>
-        </div>
-      </section>
-
-      <section className="settings-section">
-        <div className="settings-section__intro"><span>05</span><div><h3>Welcome screen appearance</h3><p>Customize the background image displayed on the kiosk welcome screen.</p></div></div>
-        <div className="settings-fields settings-fields--wide">
-          <div className="settings-background-picker">
-            <div className="settings-background-input-group">
-              <label className="settings-field settings-field--wide">
-                Background image URL or path
-                <input
-                  value={settings.welcome_background_image ?? ''}
-                  placeholder="e.g. /menu/burger-bundle.png or https://..."
-                  maxLength={500}
-                  onChange={(event) => setSettings({ ...settings, welcome_background_image: event.target.value || null })}
-                />
-              </label>
-              <div className="settings-upload-row">
-                <label className="admin-secondary" style={{ cursor: uploading ? 'wait' : 'pointer' }}>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    style={{ display: 'none' }}
-                    disabled={uploading}
-                    onChange={handleImageUpload}
-                  />
-                  {uploading ? 'Uploading image...' : 'Upload image file'}
-                </label>
-                {settings.welcome_background_image && (
-                  <button
-                    type="button"
-                    className="admin-secondary admin-secondary--danger"
-                    onClick={() => setSettings({ ...settings, welcome_background_image: null })}
-                  >
-                    Remove background
-                  </button>
-                )}
-              </div>
-            </div>
-            {settings.welcome_background_image && (
-              <div className="settings-background-preview">
-                <p className="settings-preview-label">Live Preview</p>
-                <div
-                  className="settings-preview-box"
-                  style={{ backgroundImage: `url(${settings.welcome_background_image})` }}
-                >
-                  <div className="settings-preview-overlay">
-                    <span>Welcome to</span>
-                    <strong>{settings.brand_name}</strong>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
-    </form>}
-  </AdminShell>
-=======
           {/* Section 02: Welcome Screen Background (Controls on Left, Portrait Preview on Right) */}
           <section className="settings-section">
             <div className="settings-section__intro">
@@ -1321,5 +1229,4 @@ export function SettingsPage() {
       </button>
     </AdminShell>
   )
->>>>>>> Stashed changes
 }

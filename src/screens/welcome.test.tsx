@@ -9,7 +9,7 @@ describe('WelcomeScreen', () => {
   })
 
   it('renders default welcome screen without background image', () => {
-    useKioskStore.getState().setSettings({ ...defaultSettings, welcome_background_image: null })
+    useKioskStore.getState().setSettings({ ...defaultSettings, welcome_background_url: null })
     const { container } = render(
       <MemoryRouter>
         <WelcomeScreen />
@@ -18,14 +18,13 @@ describe('WelcomeScreen', () => {
 
     expect(screen.getByText(/Start your order/i)).toBeInTheDocument()
     const main = container.querySelector('main')
-    expect(main).not.toHaveClass('welcome--has-bg')
-    expect(container.querySelector('.welcome__backdrop')).not.toBeInTheDocument()
+    expect(main).not.toHaveClass('welcome--custom-bg')
   })
 
-  it('renders background image and backdrop when welcome_background_image is set', () => {
+  it('renders background image when welcome_background_url is set', () => {
     useKioskStore.getState().setSettings({
       ...defaultSettings,
-      welcome_background_image: '/storage/backgrounds/custom-bg.jpg',
+      welcome_background_url: '/storage/backgrounds/custom-bg.jpg',
     })
     const { container } = render(
       <MemoryRouter>
@@ -34,8 +33,7 @@ describe('WelcomeScreen', () => {
     )
 
     const main = container.querySelector('main')
-    expect(main).toHaveClass('welcome--has-bg')
-    expect(main).toHaveStyle({ backgroundImage: 'url(/storage/backgrounds/custom-bg.jpg)' })
-    expect(container.querySelector('.welcome__backdrop')).toBeInTheDocument()
+    expect(main).toHaveClass('welcome--custom-bg')
+    expect(main).toHaveStyle({ backgroundImage: 'url("/storage/backgrounds/custom-bg.jpg")' })
   })
 })

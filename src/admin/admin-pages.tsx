@@ -1,12 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { formatMoney } from '../domain/order'
-<<<<<<< Updated upstream
+import { formatPhTime, getPhHour } from '../domain/datetime'
 import { getCatalog, getDashboard, getOrders, setAvailability, setOrderStatus, type AdminOrder, type AdminProduct } from './admin-api'
-=======
-import { formatPhTime } from '../domain/datetime'
-import { getCatalog, getDashboard, getOrders, retryWboxExport, setAvailability, setOrderStatus, setWboxMapping, type AdminOrder, type AdminProduct } from './admin-api'
->>>>>>> Stashed changes
 import { AdminShell } from './admin-shell'
 import { useAdminStore } from './admin-store'
 import { useAdminNotificationsStore } from './admin-notifications-store'
@@ -32,43 +28,103 @@ export function DashboardPage() {
     getDashboard(token).then(setData).catch((reason: Error) => setError(reason.message))
   }, [token])
 
-  return <AdminShell title="Good morning." eyebrow="TODAY AT A GLANCE" action={<span className="admin-live"><i /> Live operations</span>}>
-    {error ? <AdminState message={error} /> : !data ? <AdminState message="Loading today's operation..." /> : <>
-      <section className="metric-grid">
-        <article><span>Net sales</span><strong>{formatMoney(data.summary.sales_minor)}</strong><small>Paid orders today</small></article>
-        <article><span>Orders today</span><strong>{data.summary.orders}</strong><small>Across all terminals</small></article>
-        <article><span>Active orders</span><strong>{data.summary.active_orders}</strong><small>Pending through ready</small></article>
-        <article><span>Menu available</span><strong>{data.summary.available_products}</strong><small>Active products</small></article>
-      </section>
-      <section className="admin-panel">
-        <div className="admin-panel__heading"><div><p>ORDER QUEUE</p><h2>Recent orders</h2></div><a href="/admin/orders">View all &rarr;</a></div>
-        <OrderTable orders={data.recent_orders} compact />
-      </section>
-      <section className="admin-split">
-        <article className="admin-panel">
-          <div className="admin-panel__heading"><div><p>QUICK ACTIONS</p><h2>Keep things moving</h2></div></div>
-          <div className="quick-actions"><a href="/admin/catalog">+ Add a product</a><a href="/admin/orders">Process orders</a><a href="/admin/kiosks">Check terminals</a></div>
-        </article>
-        <article className="admin-panel admin-note"><p>SHIFT NOTE</p><h2>Everything looks steady.</h2><span>All systems operational and ready for orders.</span></article>
-      </section>
-    </>}
-  </AdminShell>
-}
+  const chartData = useMemo(() => {
+    if (!data?.recent_orders) return []
+    const hours = ['08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00']
+    const buckets: Record<string, number> = {
+      '08:00': 0, '10:00': 0, '12:00': 0, '14:00': 0, '16:00': 0, '18:00': 0, '20:00': 0,
+    }
 
-function OrderTable({ orders, compact = false, onStatus }: { orders: AdminOrder[]; compact?: boolean; onStatus?: (order: AdminOrder, status: string) => void }) {
-  if (!orders.length) {
-    return <div className="admin-state" style={{ padding: '2rem 1rem' }}>No orders placed today.</div>
-  }
-  return <div className="admin-table-wrap"><table className="admin-table">
-    <thead><tr><th>Order</th><th>Terminal</th><th>Service</th><th>Placed</th><th>Total</th><th>Status</th></tr></thead>
-    <tbody>{orders.map((order) => <tr key={order.id}>
-      <td><strong>#{order.order_number}</strong></td><td>{order.terminal_id}</td><td>{order.dining_type}</td><td>{time(order.placed_at)}</td><td>{formatMoney(order.total_minor)}</td>
-      <td>{compact
-        ? <span className={'status status--' + order.fulfillment_status}>{order.fulfillment_status}</span>
-        : <select value={order.fulfillment_status} onChange={(event) => onStatus?.(order, event.target.value)}>{statuses.map((status) => <option key={status}>{status}</option>)}</select>}
-      </td>
-    </tr>)}</tbody>
-  </table></div>
+    data.recent_orders.forEach((ord) => {
+      if (!ord.placed_at) return
+      const h = getPhHour(ord.placed_at)
+      let key = '20:00'
+      if (h < 10) key = '08:00'
+      else if (h < 12) key = '10:00'
+      else if (h < 14) key = '12:00'
+      else if (h < 16) key = '14:00'
+      else if (h < 18) key = '16:00'
+      else if (h < 20) key = '18:00'
+      buckets[key] = (buckets[key] ?? 0) + ord.total_minor
+    })
+
+    const maxVal = Math.max(...Object.values(buckets), 50000)
+    return hours.map((hour) => ({
+      hour,
+      amount: buckets[hour] ?? 0,
+      height: Math.max(12, Math.round(((buckets[hour] ?? 0) / maxVal) * 100)),
+    }))
+  }, [data])
+
+  return (
+    <AdminShell title="Dashboard" eyebrow="OPERATIONS">
+      {error && <div className="admin-error">{error}</div>}
+      {!data && !error && <AdminState message="Loading dashboard metrics..." />}
+      {data && (
+        <>
+          <section className="metric-grid">
+            <article><span>Sales today</span><strong>{formatMoney(data.summary.sales_minor)}</strong><small>Gross transactions</small></article>
+            <article><span>Total orders</span><strong>{data.summary.orders}</strong><small>{data.summary.active_orders} open currently</small></article>
+            <article><span>Active items</span><strong>{data.summary.available_products}</strong><small>Ready on kiosk</small></article>
+            <article><span>Store mode</span><strong style={{ fontSize: '1.4rem' }}>Philippine Standard</strong><small>GMT+8 Manila Active</small></article>
+          </section>
+
+          <section className="dashboard-grid">
+            <div className="admin-panel">
+              <div className="panel-header">
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: '#1f1816' }}>Hourly Sales Activity</h3>
+                  <small style={{ color: '#78716c' }}>Real-time revenue distribution today</small>
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.8rem', height: '180px', paddingTop: '1.5rem', borderBottom: '1px solid #f0e8e2' }}>
+                {chartData.map((item) => (
+                  <div key={item.hour} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', justifyContent: 'flex-end', gap: '0.4rem' }}>
+                    <div
+                      style={{
+                        width: '100%',
+                        maxWidth: '2.5rem',
+                        height: `${item.height}%`,
+                        background: 'linear-gradient(180deg, #ea580c 0%, #fed7aa 100%)',
+                        borderRadius: '0.35rem 0.35rem 0 0',
+                        transition: 'height 0.3s ease',
+                      }}
+                      title={`${item.hour}: ${formatMoney(item.amount)}`}
+                    />
+                    <span style={{ fontSize: '0.68rem', color: '#78716c', fontWeight: 600 }}>{item.hour}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="admin-panel">
+              <div className="panel-header">
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: '#1f1816' }}>Recent Orders</h3>
+                  <small style={{ color: '#78716c' }}>Live kiosk customer queue</small>
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                {data.recent_orders.slice(0, 5).map((ord) => (
+                  <div key={ord.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.6rem 0.8rem', background: '#fff8f5', borderRadius: '0.5rem', border: '1px solid #fed7aa' }}>
+                    <div>
+                      <strong style={{ color: '#1f1816', fontSize: '0.82rem' }}>#{ord.order_number}</strong>
+                      <span style={{ marginLeft: '0.5rem', fontSize: '0.7rem', color: '#78716c' }}>{time(ord.placed_at)}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                      <span style={{ fontWeight: 700, fontSize: '0.8rem', color: '#ea580c' }}>{formatMoney(ord.total_minor)}</span>
+                      <span className={`status status--${ord.fulfillment_status}`} style={{ fontSize: '0.65rem', padding: '0.2rem 0.5rem' }}>{ord.fulfillment_status}</span>
+                    </div>
+                  </div>
+                ))}
+                {data.recent_orders.length === 0 && <p style={{ color: '#78716c', fontSize: '0.8rem', textAlign: 'center', padding: '1rem' }}>No orders placed today.</p>}
+              </div>
+            </div>
+          </section>
+        </>
+      )}
+    </AdminShell>
+  )
 }
 
 const productImages: Record<string, string> = {
@@ -115,6 +171,7 @@ export function CatalogPage() {
   const [isCombo, setIsCombo] = useState(false)
   const [editAccent, setEditAccent] = useState('#fff7ed')
   const [editImageUrl, setEditImageUrl] = useState<string>('')
+  const [editWboxItemCode, setEditWboxItemCode] = useState('')
   const [toast, setToast] = useState<string | null>(null)
 
   // Combo Option Groups state
@@ -753,15 +810,6 @@ export function CatalogPage() {
                 />
                 <small style={{ color: '#78716c', fontSize: '0.65rem' }}>This must match the item menukey configured in WBOX.</small>
               </div>
-<<<<<<< Updated upstream
-            )}
-
-            {/* Action Buttons Footer */}
-            <div style={{ display: 'flex', gap: '0.8rem', marginTop: '1rem', borderTop: '1px solid #f0e8e2', paddingTop: '1rem' }}>
-              <button type="submit" className="admin-primary" style={{ flex: 1 }}>
-                Save Changes &rarr;
-              </button>
-=======
             </div>
 
             {/* Fixed Action Buttons Footer */}
@@ -776,7 +824,6 @@ export function CatalogPage() {
                 background: '#faf7f5',
               }}
             >
->>>>>>> Stashed changes
               <button
                 type="button"
                 className="secondary-button"

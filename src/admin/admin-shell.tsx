@@ -4,6 +4,7 @@ import { Brand } from '../components/brand'
 import { logout } from './admin-api'
 import { useAdminStore } from './admin-store'
 import { AdminNotificationCenter } from './admin-notifications'
+import { AdminTimeDropdown } from './admin-time-dropdown'
 
 type NavIconName = 'dashboard' | 'catalog' | 'orders' | 'kiosks' | 'reports' | 'settings'
 
@@ -59,6 +60,7 @@ export function AdminShell({ title, eyebrow, children, action }: { title: string
         <div className="admin-header__title"><p>{eyebrow}</p><h1>{title}</h1></div>
         <div className="admin-header__tools">
           {action}
+          <AdminTimeDropdown />
           <AdminNotificationCenter />
           <div className="admin-user">
             <span>{user?.name.slice(0, 1) ?? 'A'}</span>
