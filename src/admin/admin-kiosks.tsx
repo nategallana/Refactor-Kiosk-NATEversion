@@ -464,125 +464,307 @@ export function KiosksPage() {
 
       {/* Edit Terminal Modal */}
       {editingTerminal && (
-        <div className="modal-backdrop" onClick={() => setEditingTerminal(null)}>
-          <div className="idle-modal" style={{ maxWidth: '28rem', textAlign: 'left' }} onClick={(e) => e.stopPropagation()}>
-            <p className="eyebrow" style={{ color: '#ea580c', fontWeight: 800 }}>DEVICE CONFIGURATION</p>
-            <h2 style={{ fontFamily: 'Georgia, serif', margin: '0.3rem 0 1rem', color: '#1f1816' }}>
-              Edit Terminal {editingTerminal.id}
-            </h2>
+        <div
+          className="modal-backdrop"
+          onClick={() => setEditingTerminal(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(6px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1.25rem',
+            zIndex: 100,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '100%',
+              maxWidth: '32rem',
+              background: '#ffffff',
+              borderRadius: '1.25rem',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(226, 232, 240, 0.8)',
+              padding: '1.75rem',
+              textAlign: 'left',
+              animation: 'fadeIn 0.15s ease-out',
+            }}
+          >
+            {/* Header: Eyebrow + Close Button */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+              <span
+                style={{
+                  color: '#ea580c',
+                  background: '#fff7ed',
+                  border: '1px solid #ffedd5',
+                  padding: '0.2rem 0.65rem',
+                  borderRadius: '999px',
+                  fontSize: '0.68rem',
+                  fontWeight: 800,
+                  letterSpacing: '0.06em',
+                }}
+              >
+                DEVICE CONFIGURATION
+              </span>
+              <button
+                type="button"
+                onClick={() => setEditingTerminal(null)}
+                style={{
+                  background: '#f1f5f9',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '32px',
+                  height: '32px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  color: '#64748b',
+                  fontSize: '0.95rem',
+                  fontWeight: 700,
+                  transition: 'background 0.15s',
+                }}
+                aria-label="Close dialog"
+              >
+                ✕
+              </button>
+            </div>
 
-            <form onSubmit={handleSaveEdit} style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
+            {/* Title with Kiosk Badge */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1.4rem', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '1.35rem' }}>🖥️</span>
+              <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: '#0f172a', whiteSpace: 'nowrap' }}>
+                Edit Terminal
+              </h2>
+              <span
+                style={{
+                  background: '#f8fafc',
+                  border: '1.5px solid #cbd5e1',
+                  borderRadius: '0.45rem',
+                  padding: '0.2rem 0.65rem',
+                  fontSize: '0.82rem',
+                  fontWeight: 800,
+                  color: '#334155',
+                  letterSpacing: '0.03em',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {editingTerminal.id}
+              </span>
+            </div>
+
+            <form onSubmit={handleSaveEdit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: '#574d49', marginBottom: '0.3rem' }}>
-                  Terminal Name
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.78rem', fontWeight: 700, color: '#334155', marginBottom: '0.35rem' }}>
+                  <span>🏷️</span>
+                  <span>Terminal Name</span>
                 </label>
                 <input
                   type="text"
                   required
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
+                  placeholder="e.g. Main Customer Terminal"
                   style={{
                     width: '100%',
-                    padding: '0.75rem',
-                    borderRadius: '0.55rem',
-                    border: '1px solid #fed7aa',
-                    fontSize: '0.8rem',
+                    height: '2.85rem',
+                    padding: '0 0.9rem',
+                    borderRadius: '0.65rem',
+                    border: '1.5px solid #e2e8f0',
+                    background: '#f8fafc',
+                    fontSize: '0.88rem',
+                    fontWeight: 600,
+                    color: '#0f172a',
+                    outline: 'none',
+                    transition: 'border-color 0.15s, box-shadow 0.15s',
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = '#ea580c'
+                    e.currentTarget.style.boxShadow = '0 0 0 3px rgba(234, 88, 12, 0.12)'
+                    e.currentTarget.style.background = '#ffffff'
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = '#e2e8f0'
+                    e.currentTarget.style.boxShadow = 'none'
+                    e.currentTarget.style.background = '#f8fafc'
                   }}
                 />
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: '#574d49', marginBottom: '0.3rem' }}>
-                  Location
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.78rem', fontWeight: 700, color: '#334155', marginBottom: '0.35rem' }}>
+                  <span>📍</span>
+                  <span>Location</span>
                 </label>
                 <input
                   type="text"
                   required
                   value={editLocation}
                   onChange={(e) => setEditLocation(e.target.value)}
+                  placeholder="e.g. Store Lobby / Self-Service Stand"
                   style={{
                     width: '100%',
-                    padding: '0.75rem',
-                    borderRadius: '0.55rem',
-                    border: '1px solid #fed7aa',
-                    fontSize: '0.8rem',
+                    height: '2.85rem',
+                    padding: '0 0.9rem',
+                    borderRadius: '0.65rem',
+                    border: '1.5px solid #e2e8f0',
+                    background: '#f8fafc',
+                    fontSize: '0.88rem',
+                    fontWeight: 600,
+                    color: '#0f172a',
+                    outline: 'none',
+                    transition: 'border-color 0.15s, box-shadow 0.15s',
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = '#ea580c'
+                    e.currentTarget.style.boxShadow = '0 0 0 3px rgba(234, 88, 12, 0.12)'
+                    e.currentTarget.style.background = '#ffffff'
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = '#e2e8f0'
+                    e.currentTarget.style.boxShadow = 'none'
+                    e.currentTarget.style.background = '#f8fafc'
                   }}
                 />
               </div>
 
-              <div>
-                <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: '#574d49', marginBottom: '0.3rem' }}>
-                  Allowed Service Mode
-                </label>
-                <select
-                  value={editMode}
-                  onChange={(e) => setEditMode(e.target.value as KioskTerminal['mode'])}
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem',
-                    borderRadius: '0.55rem',
-                    border: '1px solid #fed7aa',
-                    fontSize: '0.8rem',
-                    background: '#fff',
-                  }}
-                >
-                  <option value="both">Both (Dine-In & Takeout)</option>
-                  <option value="takeout">Takeout Only</option>
-                  <option value="dine-in">Dine-In Only</option>
-                </select>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem' }}>
+                <div>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.78rem', fontWeight: 700, color: '#334155', marginBottom: '0.35rem' }}>
+                    <span>🍽️</span>
+                    <span>Allowed Service Mode</span>
+                  </label>
+                  <select
+                    value={editMode}
+                    onChange={(e) => setEditMode(e.target.value as KioskTerminal['mode'])}
+                    style={{
+                      width: '100%',
+                      height: '2.85rem',
+                      padding: '0 0.75rem',
+                      borderRadius: '0.65rem',
+                      border: '1.5px solid #e2e8f0',
+                      background: '#f8fafc',
+                      fontSize: '0.82rem',
+                      fontWeight: 600,
+                      color: '#0f172a',
+                      outline: 'none',
+                    }}
+                  >
+                    <option value="both">Both (Dine-In & Takeout)</option>
+                    <option value="takeout">Takeout Only</option>
+                    <option value="dine-in">Dine-In Only</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.78rem', fontWeight: 700, color: '#334155', marginBottom: '0.35rem' }}>
+                    <span>📐</span>
+                    <span>Screen Display Profile</span>
+                  </label>
+                  <select
+                    value={editScreen}
+                    onChange={(e) => setEditScreen(e.target.value)}
+                    style={{
+                      width: '100%',
+                      height: '2.85rem',
+                      padding: '0 0.75rem',
+                      borderRadius: '0.65rem',
+                      border: '1.5px solid #e2e8f0',
+                      background: '#f8fafc',
+                      fontSize: '0.82rem',
+                      fontWeight: 600,
+                      color: '#0f172a',
+                      outline: 'none',
+                    }}
+                  >
+                    <option value="1080 × 1920 (Portrait Kiosk)">1080 × 1920 (Portrait)</option>
+                    <option value="1920 × 1080 (Landscape Kiosk)">1920 × 1080 (Landscape)</option>
+                    <option value="1440 × 900 (Desktop Dev)">1440 × 900 (Desktop)</option>
+                  </select>
+                </div>
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: '#574d49', marginBottom: '0.3rem' }}>
-                  Screen Display Profile
-                </label>
-                <select
-                  value={editScreen}
-                  onChange={(e) => setEditScreen(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem',
-                    borderRadius: '0.55rem',
-                    border: '1px solid #fed7aa',
-                    fontSize: '0.8rem',
-                    background: '#fff',
-                  }}
-                >
-                  <option value="1080 × 1920 (Portrait Kiosk)">1080 × 1920 (Portrait Kiosk)</option>
-                  <option value="1920 × 1080 (Landscape Kiosk)">1920 × 1080 (Landscape Kiosk)</option>
-                  <option value="1440 × 900 (Desktop Dev)">1440 × 900 (Desktop Dev)</option>
-                </select>
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: '#574d49', marginBottom: '0.3rem' }}>
-                  Host / IP Address
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.78rem', fontWeight: 700, color: '#334155', marginBottom: '0.35rem' }}>
+                  <span>🌐</span>
+                  <span>Host / IP Address</span>
                 </label>
                 <input
                   type="text"
                   value={editIp}
                   onChange={(e) => setEditIp(e.target.value)}
+                  placeholder="127.0.0.1 or LAN IP"
                   style={{
                     width: '100%',
-                    padding: '0.75rem',
-                    borderRadius: '0.55rem',
-                    border: '1px solid #fed7aa',
-                    fontSize: '0.8rem',
+                    height: '2.85rem',
+                    padding: '0 0.9rem',
+                    borderRadius: '0.65rem',
+                    border: '1.5px solid #e2e8f0',
+                    background: '#f8fafc',
+                    fontSize: '0.88rem',
+                    fontWeight: 600,
+                    color: '#0f172a',
+                    outline: 'none',
+                    transition: 'border-color 0.15s, box-shadow 0.15s',
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = '#ea580c'
+                    e.currentTarget.style.boxShadow = '0 0 0 3px rgba(234, 88, 12, 0.12)'
+                    e.currentTarget.style.background = '#ffffff'
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = '#e2e8f0'
+                    e.currentTarget.style.boxShadow = 'none'
+                    e.currentTarget.style.background = '#f8fafc'
                   }}
                 />
               </div>
 
-              <div style={{ display: 'flex', gap: '0.8rem', marginTop: '1rem' }}>
-                <button type="submit" className="admin-primary" style={{ flex: 1 }}>
-                  Save Changes &rarr;
-                </button>
+              {/* Action Buttons: 50/50 balanced grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem', marginTop: '0.5rem', paddingTop: '1rem', borderTop: '1px solid #f1f5f9' }}>
                 <button
                   type="button"
-                  className="secondary-button"
-                  style={{ padding: '0 1.2rem', borderRadius: '0.6rem', border: '1px solid #ea580c40', color: '#c2410c' }}
                   onClick={() => setEditingTerminal(null)}
+                  style={{
+                    minHeight: '2.85rem',
+                    borderRadius: '0.65rem',
+                    border: '1.5px solid #cbd5e1',
+                    background: '#ffffff',
+                    color: '#475569',
+                    fontWeight: 700,
+                    fontSize: '0.88rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
                 >
                   Cancel
+                </button>
+                <button
+                  type="submit"
+                  style={{
+                    minHeight: '2.85rem',
+                    borderRadius: '0.65rem',
+                    border: 'none',
+                    background: 'linear-gradient(135deg, #ea580c 0%, #c2410c 100%)',
+                    color: '#ffffff',
+                    fontWeight: 750,
+                    fontSize: '0.88rem',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 12px rgba(234, 88, 12, 0.25)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.45rem',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  <span>Save Changes</span>
+                  <span>&rarr;</span>
                 </button>
               </div>
             </form>
@@ -590,107 +772,231 @@ export function KiosksPage() {
         </div>
       )}
 
+      {/* Register Terminal Modal */}
       {showModal && (
-        <div className="modal-backdrop" onClick={() => setShowModal(false)}>
-          <div className="idle-modal" style={{ maxWidth: '28rem', textAlign: 'left' }} onClick={(e) => e.stopPropagation()}>
-            <p className="eyebrow" style={{ color: '#ea580c', fontWeight: 800 }}>DEVICE PROVISIONING</p>
-            <h2 style={{ fontFamily: 'Georgia, serif', margin: '0.3rem 0 1rem', color: '#1f1816' }}>
-              Register Terminal
-            </h2>
+        <div
+          className="modal-backdrop"
+          onClick={() => setShowModal(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(6px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1.25rem',
+            zIndex: 100,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '100%',
+              maxWidth: '32rem',
+              background: '#ffffff',
+              borderRadius: '1.25rem',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(226, 232, 240, 0.8)',
+              padding: '1.75rem',
+              textAlign: 'left',
+              animation: 'fadeIn 0.15s ease-out',
+            }}
+          >
+            {/* Header: Eyebrow + Close Button */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+              <span
+                style={{
+                  color: '#ea580c',
+                  background: '#fff7ed',
+                  border: '1px solid #ffedd5',
+                  padding: '0.2rem 0.65rem',
+                  borderRadius: '999px',
+                  fontSize: '0.68rem',
+                  fontWeight: 800,
+                  letterSpacing: '0.06em',
+                }}
+              >
+                DEVICE PROVISIONING
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowModal(false)}
+                style={{
+                  background: '#f1f5f9',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '32px',
+                  height: '32px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  color: '#64748b',
+                  fontSize: '0.95rem',
+                  fontWeight: 700,
+                }}
+                aria-label="Close dialog"
+              >
+                ✕
+              </button>
+            </div>
 
-            <form onSubmit={handleCreateTerminal} style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1.4rem' }}>
+              <span style={{ fontSize: '1.35rem' }}>➕</span>
+              <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: '#0f172a' }}>
+                Register Terminal
+              </h2>
+            </div>
+
+            <form onSubmit={handleCreateTerminal} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: '#574d49', marginBottom: '0.3rem' }}>
-                  Terminal Identifier (e.g. KIOSK-02)
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.78rem', fontWeight: 700, color: '#334155', marginBottom: '0.35rem' }}>
+                  <span>🔢</span>
+                  <span>Terminal Identifier</span>
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder="KIOSK-02"
+                  placeholder="e.g. KIOSK-02"
                   value={newId}
                   onChange={(e) => setNewId(e.target.value)}
                   style={{
                     width: '100%',
-                    padding: '0.75rem',
-                    borderRadius: '0.55rem',
-                    border: '1px solid #fed7aa',
-                    fontSize: '0.8rem',
+                    height: '2.85rem',
+                    padding: '0 0.9rem',
+                    borderRadius: '0.65rem',
+                    border: '1.5px solid #e2e8f0',
+                    background: '#f8fafc',
+                    fontSize: '0.88rem',
+                    fontWeight: 600,
+                    color: '#0f172a',
+                    outline: 'none',
                   }}
                 />
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: '#574d49', marginBottom: '0.3rem' }}>
-                  Terminal Name
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.78rem', fontWeight: 700, color: '#334155', marginBottom: '0.35rem' }}>
+                  <span>🏷️</span>
+                  <span>Terminal Name</span>
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder="Express Takeout Kiosk"
+                  placeholder="e.g. Express Takeout Kiosk"
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
                   style={{
                     width: '100%',
-                    padding: '0.75rem',
-                    borderRadius: '0.55rem',
-                    border: '1px solid #fed7aa',
-                    fontSize: '0.8rem',
+                    height: '2.85rem',
+                    padding: '0 0.9rem',
+                    borderRadius: '0.65rem',
+                    border: '1.5px solid #e2e8f0',
+                    background: '#f8fafc',
+                    fontSize: '0.88rem',
+                    fontWeight: 600,
+                    color: '#0f172a',
+                    outline: 'none',
                   }}
                 />
               </div>
 
-              <div>
-                <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: '#574d49', marginBottom: '0.3rem' }}>
-                  Location
-                </label>
-                <input
-                  type="text"
-                  placeholder="Counter Side"
-                  value={newLocation}
-                  onChange={(e) => setNewLocation(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem',
-                    borderRadius: '0.55rem',
-                    border: '1px solid #fed7aa',
-                    fontSize: '0.8rem',
-                  }}
-                />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem' }}>
+                <div>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.78rem', fontWeight: 700, color: '#334155', marginBottom: '0.35rem' }}>
+                    <span>📍</span>
+                    <span>Location</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Counter Side"
+                    value={newLocation}
+                    onChange={(e) => setNewLocation(e.target.value)}
+                    style={{
+                      width: '100%',
+                      height: '2.85rem',
+                      padding: '0 0.9rem',
+                      borderRadius: '0.65rem',
+                      border: '1.5px solid #e2e8f0',
+                      background: '#f8fafc',
+                      fontSize: '0.88rem',
+                      fontWeight: 600,
+                      color: '#0f172a',
+                      outline: 'none',
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.78rem', fontWeight: 700, color: '#334155', marginBottom: '0.35rem' }}>
+                    <span>🍽️</span>
+                    <span>Service Mode</span>
+                  </label>
+                  <select
+                    value={newMode}
+                    onChange={(e) => setNewMode(e.target.value as KioskTerminal['mode'])}
+                    style={{
+                      width: '100%',
+                      height: '2.85rem',
+                      padding: '0 0.75rem',
+                      borderRadius: '0.65rem',
+                      border: '1.5px solid #e2e8f0',
+                      background: '#f8fafc',
+                      fontSize: '0.82rem',
+                      fontWeight: 600,
+                      color: '#0f172a',
+                      outline: 'none',
+                    }}
+                  >
+                    <option value="both">Both (Dine-In & Takeout)</option>
+                    <option value="takeout">Takeout Only</option>
+                    <option value="dine-in">Dine-In Only</option>
+                  </select>
+                </div>
               </div>
 
-              <div>
-                <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: '#574d49', marginBottom: '0.3rem' }}>
-                  Service Mode
-                </label>
-                <select
-                  value={newMode}
-                  onChange={(e) => setNewMode(e.target.value as KioskTerminal['mode'])}
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem',
-                    borderRadius: '0.55rem',
-                    border: '1px solid #fed7aa',
-                    fontSize: '0.8rem',
-                    background: '#fff',
-                  }}
-                >
-                  <option value="both">Both (Dine-In & Takeout)</option>
-                  <option value="takeout">Takeout Only</option>
-                  <option value="dine-in">Dine-In Only</option>
-                </select>
-              </div>
-
-              <div style={{ display: 'flex', gap: '0.8rem', marginTop: '1rem' }}>
-                <button type="submit" className="admin-primary" style={{ flex: 1 }}>
-                  Confirm Registration &rarr;
-                </button>
+              {/* Action Buttons: 50/50 balanced grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem', marginTop: '0.5rem', paddingTop: '1rem', borderTop: '1px solid #f1f5f9' }}>
                 <button
                   type="button"
-                  className="secondary-button"
-                  style={{ padding: '0 1.2rem', borderRadius: '0.6rem', border: '1px solid #ea580c40', color: '#c2410c' }}
                   onClick={() => setShowModal(false)}
+                  style={{
+                    minHeight: '2.85rem',
+                    borderRadius: '0.65rem',
+                    border: '1.5px solid #cbd5e1',
+                    background: '#ffffff',
+                    color: '#475569',
+                    fontWeight: 700,
+                    fontSize: '0.88rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
                 >
                   Cancel
+                </button>
+                <button
+                  type="submit"
+                  style={{
+                    minHeight: '2.85rem',
+                    borderRadius: '0.65rem',
+                    border: 'none',
+                    background: 'linear-gradient(135deg, #ea580c 0%, #c2410c 100%)',
+                    color: '#ffffff',
+                    fontWeight: 750,
+                    fontSize: '0.88rem',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 12px rgba(234, 88, 12, 0.25)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.45rem',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  <span>Confirm Registration</span>
+                  <span>&rarr;</span>
                 </button>
               </div>
             </form>

@@ -49,9 +49,34 @@ export function TicketScreen() {
           <span>YOUR ORDER NUMBER</span>
           <strong>{receipt.orderNumber}</strong>
         </div>
-        <button className="primary-button primary-button--wide" onClick={finish}>
-          Finish ({secondsLeft}s)
-        </button>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', marginTop: '1.25rem', width: '100%' }}>
+          <button className="primary-button primary-button--wide" onClick={finish}>
+            Finish ({secondsLeft}s)
+          </button>
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={() => window.print()}
+            style={{
+              padding: '0.75rem',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.45rem',
+              fontSize: '0.85rem',
+              fontWeight: 700,
+              borderRadius: '0.75rem',
+              background: '#ffffff',
+              border: '1.5px solid #fed7aa',
+              color: '#c2410c',
+              cursor: 'pointer',
+            }}
+          >
+            <span>🖨️</span>
+            <span>Print Receipt Slip</span>
+          </button>
+        </div>
       </section>
 
       <article className="receipt">

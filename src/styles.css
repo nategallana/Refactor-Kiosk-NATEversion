@@ -673,6 +673,37 @@ h1 em { color: #bd532f; font-weight: 400; }
   box-shadow: 0 2px 8px #00000015;
 }
 
+.kiosk-header-bar__search {
+  align-items: center;
+  background: #ffffff;
+  border: 1.5px solid #fed7aa;
+  border-radius: 999px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  display: flex;
+  max-width: 420px;
+  padding: 0.4rem 1rem;
+  transition: all 0.2s ease;
+  width: 100%;
+}
+.kiosk-header-bar__search:focus-within {
+  border-color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.35), 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+.kiosk-header-bar__search input {
+  background: transparent !important;
+  border: none !important;
+  caret-color: #ea580c !important;
+  color: #0f172a !important;
+  font-size: 0.95rem;
+  font-weight: 600;
+  outline: none !important;
+  width: 100%;
+}
+.kiosk-header-bar__search input::placeholder {
+  color: #94a3b8 !important;
+  font-weight: 500;
+}
+
 /* Kiosk Body Layout: Left Sidebar + Right Products Grid */
 .kiosk-menu-body {
   display: grid;

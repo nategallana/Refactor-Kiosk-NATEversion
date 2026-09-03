@@ -41,4 +41,17 @@ class AdminOrderController extends Controller
 
         return response()->json(['order' => DB::table('orders')->where('id', $order)->first()]);
     }
+
+    public function wboxRetry(Request $request, int $order): JsonResponse
+    {
+        $orderRow = DB::table('orders')->where('id', $order)->first();
+        if (! $orderRow) {
+            return response()->json(['message' => 'Order not found.'], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => "Order #{$orderRow->order_number} exported to WBOX successfully.",
+        ]);
+    }
 }

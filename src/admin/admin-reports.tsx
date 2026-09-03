@@ -315,7 +315,7 @@ export function ReportsPage() {
     const headers = ['Order Number', 'Date & Time', 'Terminal', 'Dining Type', 'Payment Status', 'Fulfillment', 'Subtotal (PHP)', '12% Tax (PHP)', 'Total (PHP)']
     const rows = filteredOrders.map((o) => [
       `#${o.order_number}`,
-      new Date(o.placed_at).toLocaleString(),
+      formatPhDateTime(o.placed_at),
       o.terminal_id,
       o.dining_type,
       o.payment_status,

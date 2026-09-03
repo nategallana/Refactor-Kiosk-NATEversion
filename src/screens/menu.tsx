@@ -141,50 +141,69 @@ export function MenuScreen() {
         {/* Top Ad Promotional Banner */}
         <AdBanner />
 
-        {/* Category Header Bar, Search Filter & Live Philippines Clock */}
-        <div className="kiosk-header-bar" style={{ flexWrap: 'wrap', gap: '0.75rem' }}>
-          <div className="kiosk-header-bar__title">
-            <h2>{heading}</h2>
+        {/* Category Header Bar, Centered Search Filter & Live Philippines Clock */}
+        <div className="kiosk-header-bar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', padding: '0.75rem clamp(1rem, 2.5vw, 1.8rem)' }}>
+          {/* Left: Category Title */}
+          <div className="kiosk-header-bar__title" style={{ flex: '1 1 0', minWidth: '140px' }}>
+            <h2 style={{ whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{heading}</h2>
           </div>
 
-          {/* Touch-friendly Search Bar */}
-          <div style={{ display: 'flex', alignItems: 'center', background: '#fff', border: '1.5px solid #e2e8f0', borderRadius: '999px', padding: '0.35rem 0.85rem', flex: '1 1 200px', maxWidth: '320px' }}>
-            <svg
-              viewBox="0 0 24 24"
-              width="18"
-              height="18"
-              fill="none"
-              stroke="#94a3b8"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-              style={{ marginRight: '0.4rem', flexShrink: 0 }}
-            >
-              <circle cx="11" cy="11" r="7" />
-              <line x1="21" y1="21" x2="16.65" y2="16.65" />
-            </svg>
-            <input
-              type="text"
-              placeholder="Search items..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              style={{ border: 'none', outline: 'none', background: 'transparent', width: '100%', fontSize: '0.95rem', fontWeight: 500 }}
-              aria-label="Search menu items"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery('')}
-                style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#94a3b8', fontWeight: 'bold', padding: '0 0.2rem' }}
-                aria-label="Clear search"
+          {/* Center: Perfectly Centered Search Bar */}
+          <div style={{ flex: '0 1 420px', display: 'flex', justifyContent: 'center' }}>
+            <div className="kiosk-header-bar__search">
+              <svg
+                viewBox="0 0 24 24"
+                width="18"
+                height="18"
+                fill="none"
+                stroke="#ea580c"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+                style={{ marginRight: '0.5rem', flexShrink: 0 }}
               >
-                ✕
-              </button>
-            )}
+                <circle cx="11" cy="11" r="7" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              <input
+                type="text"
+                placeholder="Search menu items..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                aria-label="Search menu items"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  style={{
+                    border: 'none',
+                    background: '#f1f5f9',
+                    borderRadius: '50%',
+                    width: '24px',
+                    height: '24px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    color: '#64748b',
+                    fontWeight: 'bold',
+                    fontSize: '0.75rem',
+                    padding: 0,
+                    marginLeft: '0.35rem',
+                    flexShrink: 0,
+                  }}
+                  aria-label="Clear search"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          {/* Right: Clock & Dining Badge */}
+          <div style={{ flex: '1 1 0', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.5rem' }}>
             <div
               className="kiosk-header-bar__clock"
               style={{
@@ -198,6 +217,7 @@ export function MenuScreen() {
                 fontSize: '0.82rem',
                 fontWeight: 750,
                 color: '#c2410c',
+                whiteSpace: 'nowrap',
               }}
             >
               <span aria-hidden="true">🕒</span>

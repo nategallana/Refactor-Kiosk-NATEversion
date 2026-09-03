@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { formatMoney } from '../domain/order'
 import { formatPhTime, getPhHour } from '../domain/datetime'
-import { getCatalog, getDashboard, getOrders, setAvailability, setOrderStatus, type AdminOrder, type AdminProduct } from './admin-api'
+import { getCatalog, getDashboard, getOrders, retryWboxExport, setAvailability, setOrderStatus, syncWboxCatalog, type AdminOrder, type AdminProduct } from './admin-api'
 import { AdminShell } from './admin-shell'
 import { useAdminStore } from './admin-store'
 import { useAdminNotificationsStore } from './admin-notifications-store'
@@ -173,6 +173,7 @@ export function CatalogPage() {
   const [editImageUrl, setEditImageUrl] = useState<string>('')
   const [editWboxItemCode, setEditWboxItemCode] = useState('')
   const [toast, setToast] = useState<string | null>(null)
+  const [syncingWbox, setSyncingWbox] = useState(false)
 
   // Combo Option Groups state
   const [comboSteps, setComboSteps] = useState<Array<{ title: string; options: Array<{ name: string; extra: number }> }>>([
@@ -187,6 +188,46 @@ export function CatalogPage() {
   const showToast = (msg: string) => {
     setToast(msg)
     window.setTimeout(() => setToast(null), 3000)
+  }
+
+  const handleSyncWbox = async () => {
+    setSyncingWbox(true)
+    try {
+      const res = await syncWboxCatalog(token)
+      if (res.pending) {
+        showToast(res.message)
+        useAdminNotificationsStore.getState().addNotification({
+          title: 'WBOX Menu Inquiry Sent',
+          message: 'Inquiry packet QUERY_MENU.json written to C:\\Restrnt\\3rdParty\\Request. Awaiting POS response.',
+          category: 'catalog',
+          severity: 'info',
+          link: '/admin/catalog',
+        })
+      } else {
+        showToast(res.message)
+        useAdminNotificationsStore.getState().addNotification({
+          title: 'WBOX Menu Synced',
+          message: res.message,
+          category: 'catalog',
+          severity: 'success',
+          link: '/admin/catalog',
+        })
+        const refreshed = await getCatalog(token)
+        setProducts(refreshed.products)
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to sync catalog with WBOX.'
+      showToast(msg)
+      useAdminNotificationsStore.getState().addNotification({
+        title: 'WBOX Sync Failed',
+        message: msg,
+        category: 'catalog',
+        severity: 'error',
+        link: '/admin/catalog',
+      })
+    } finally {
+      setSyncingWbox(false)
+    }
   }
 
   const getProductImage = (sku: string) => customImages[sku] || productImages[sku]
@@ -290,10 +331,43 @@ export function CatalogPage() {
     title="Catalog"
     eyebrow="MENU MANAGEMENT"
     action={
-      <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: '0.45rem', alignItems: 'center', flexWrap: 'wrap' }}>
         <button
           className="admin-primary admin-primary--small"
-          style={{ background: '#fff7ed', border: '1.5px solid #ea580c', color: '#ea580c' }}
+          style={{
+            background: '#ffffff',
+            border: '1.5px solid #fed7aa',
+            color: '#c2410c',
+            fontWeight: 700,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.35rem',
+            padding: '0.42rem 0.8rem',
+            fontSize: '0.74rem',
+            borderRadius: '0.55rem',
+            cursor: 'pointer',
+            whiteSpace: 'nowrap',
+          }}
+          disabled={syncingWbox}
+          onClick={handleSyncWbox}
+          title="Sync menu items & prices from WBOX POS"
+        >
+          <span style={{ fontSize: '0.85rem' }}>{syncingWbox ? '⏳' : '↻'}</span>
+          <span>{syncingWbox ? 'Syncing...' : 'Sync WBOX'}</span>
+        </button>
+        <button
+          className="admin-primary admin-primary--small"
+          style={{
+            background: '#fff7ed',
+            border: '1.5px solid #ea580c',
+            color: '#ea580c',
+            padding: '0.42rem 0.8rem',
+            fontSize: '0.74rem',
+            borderRadius: '0.55rem',
+            fontWeight: 700,
+            whiteSpace: 'nowrap',
+            cursor: 'pointer',
+          }}
           onClick={() => {
             openEditModal({
               id: Date.now(),
@@ -312,10 +386,18 @@ export function CatalogPage() {
             setIsCombo(true)
           }}
         >
-          🍱 + Create combo meal
+          🍱 + Combo meal
         </button>
         <button
           className="admin-primary admin-primary--small"
+          style={{
+            padding: '0.42rem 0.85rem',
+            fontSize: '0.74rem',
+            borderRadius: '0.55rem',
+            fontWeight: 700,
+            whiteSpace: 'nowrap',
+            cursor: 'pointer',
+          }}
           onClick={() => openEditModal({
             id: Date.now(),
             category_id: 1,
@@ -878,6 +960,34 @@ export function OrdersPage() {
     }).catch((reason: Error) => setError(reason.message))
   }, [token])
 
+  const [retryingWbox, setRetryingWbox] = useState<number | null>(null)
+  const [wboxExportedOrders, setWboxExportedOrders] = useState<Record<number, boolean>>({})
+
+  const handleRetryWbox = async (orderId: number) => {
+    setRetryingWbox(orderId)
+    try {
+      const res = await retryWboxExport(token, orderId)
+      setWboxExportedOrders((prev) => ({ ...prev, [orderId]: true }))
+      useAdminNotificationsStore.getState().addNotification({
+        title: 'WBOX Export Succeeded',
+        message: res.message || `Order #${selectedOrder?.order_number} exported to POS drop folder.`,
+        category: 'system',
+        severity: 'success',
+        link: '/admin/orders',
+      })
+    } catch (err) {
+      useAdminNotificationsStore.getState().addNotification({
+        title: 'WBOX Export Failed',
+        message: err instanceof Error ? err.message : 'Failed to export order to WBOX drop folder.',
+        category: 'system',
+        severity: 'error',
+        link: '/admin/orders',
+      })
+    } finally {
+      setRetryingWbox(null)
+    }
+  }
+
   const update = async (order: AdminOrder, status: string) => {
     setOrders((items) => (items ?? []).map((item) => item.id === order.id ? { ...item, fulfillment_status: status } : item))
     try {
@@ -938,6 +1048,56 @@ export function OrdersPage() {
             <div><span>Subtotal</span><strong>{formatMoney(selectedOrder.subtotal_minor)}</strong></div>
             <div><span>Tax</span><strong>{formatMoney(selectedOrder.tax_minor)}</strong></div>
             <div className="order-detail__total"><span>Order total</span><strong>{formatMoney(selectedOrder.total_minor)}</strong></div>
+          </div>
+
+          {/* WBOX POS Integration Sync Card */}
+          <div style={{ margin: '1rem 0', padding: '0.85rem 1rem', background: '#fffaf5', border: '1px solid #fed7aa', borderRadius: '0.65rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <span style={{ fontSize: '0.9rem' }}>🗄️</span>
+                <strong style={{ fontSize: '0.78rem', color: '#1f1816' }}>WBOX POS Sync</strong>
+              </div>
+              <span
+                style={{
+                  fontSize: '0.62rem',
+                  fontWeight: 800,
+                  padding: '0.12rem 0.45rem',
+                  borderRadius: '999px',
+                  background: wboxExportedOrders[selectedOrder.id] || selectedOrder.fulfillment_status === 'completed' ? '#f0fdf4' : '#fff7ed',
+                  color: wboxExportedOrders[selectedOrder.id] || selectedOrder.fulfillment_status === 'completed' ? '#166534' : '#c2410c',
+                  border: `1px solid ${wboxExportedOrders[selectedOrder.id] || selectedOrder.fulfillment_status === 'completed' ? '#bbf7d0' : '#fed7aa'}`,
+                }}
+              >
+                {wboxExportedOrders[selectedOrder.id] || selectedOrder.fulfillment_status === 'completed' ? 'EXPORTED' : 'QUEUED (SYNC READY)'}
+              </span>
+            </div>
+            <p style={{ fontSize: '0.68rem', color: '#78716c', margin: '0 0 0.55rem', lineHeight: 1.35 }}>
+              Transmits order packet and customer line-items to WBOX file IPC drop folder for cashier POS billing.
+            </p>
+            <button
+              type="button"
+              onClick={() => handleRetryWbox(selectedOrder.id)}
+              disabled={retryingWbox === selectedOrder.id}
+              style={{
+                width: '100%',
+                padding: '0.42rem',
+                fontSize: '0.74rem',
+                fontWeight: 700,
+                background: '#ffffff',
+                border: '1px solid #fed7aa',
+                color: '#ea580c',
+                borderRadius: '0.45rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.4rem',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
+              }}
+            >
+              <span>↻</span>
+              <span>{retryingWbox === selectedOrder.id ? 'Exporting to WBOX...' : 'Retry / Re-export to WBOX'}</span>
+            </button>
           </div>
 
           <div style={{ margin: '1.2rem 0', borderTop: '1px solid #f0e8e2', paddingTop: '1rem' }}>

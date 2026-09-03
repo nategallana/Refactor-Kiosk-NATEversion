@@ -91,6 +91,37 @@ class AdminSettingsController extends Controller
         return response()->json(['url' => $url]);
     }
 
+    public function wboxStatus(Request $request): JsonResponse
+    {
+        $settings = $this->settings();
+        $requestPath = $settings?->wbox_request_path;
+        $responsePath = $settings?->wbox_response_path;
+
+        $requestExists = ! empty($requestPath) && is_dir($requestPath);
+        $requestWritable = $requestExists && is_writable($requestPath);
+
+        $responseExists = ! empty($responsePath) && is_dir($responsePath);
+        $responseReadable = $responseExists && is_readable($responsePath);
+
+        $credentialsConfigured = ! empty($settings?->wbox_auth_token) || (bool) ($settings?->wbox_enabled ?? false);
+
+        return response()->json([
+            'connection' => [
+                'request_path' => [
+                    'path' => $requestPath,
+                    'exists' => (bool) $requestExists,
+                    'writable' => (bool) $requestWritable,
+                ],
+                'response_path' => [
+                    'path' => $responsePath,
+                    'exists' => (bool) $responseExists,
+                    'readable' => (bool) $responseReadable,
+                ],
+                'credentials_configured' => (bool) $credentialsConfigured,
+            ],
+        ]);
+    }
+
     private function settings(int $storeId = 1): ?object
     {
         return DB::table('system_settings')->where('id', $storeId)->first() ?? DB::table('system_settings')->where('id', 1)->first();

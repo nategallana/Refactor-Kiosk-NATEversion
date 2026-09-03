@@ -14,21 +14,21 @@ describe('order pricing', () => {
 })
 
 describe('philippines datetime conversion', () => {
-  it('correctly converts raw database UTC timestamps to Philippines local time', () => {
-    // 05:59:00 UTC = 13:59:00 (1:59 PM) in Asia/Manila (UTC+8)
-    const rawSqlUtc = '2026-08-29 05:59:00'
-    expect(formatPhTime(rawSqlUtc)).toBe('01:59 PM')
-    expect(getPhHour(rawSqlUtc)).toBe(13)
-    expect(formatPhDate(rawSqlUtc)).toBe('Aug 29, 2026')
+  it('correctly converts raw database timestamps to Philippines local time', () => {
+    // Database stores timestamps in Asia/Manila (UTC+8), e.g. 15:34:00 (3:34 PM)
+    const rawSqlManila = '2026-09-02 15:34:00'
+    expect(formatPhTime(rawSqlManila)).toBe('03:34 PM')
+    expect(getPhHour(rawSqlManila)).toBe(15)
+    expect(formatPhDate(rawSqlManila)).toBe('Sep 2, 2026')
   })
 
   it('handles ISO timestamps with Z or offset', () => {
-    const isoWithZ = '2026-08-29T05:59:00.000Z'
-    expect(formatPhTime(isoWithZ)).toBe('01:59 PM')
+    const isoWithZ = '2026-09-02T07:34:00.000Z'
+    expect(formatPhTime(isoWithZ)).toBe('03:34 PM')
   })
 
   it('safely parses Date objects', () => {
-    const date = new Date('2026-08-29T05:59:00.000Z')
-    expect(formatPhTime(date)).toBe('01:59 PM')
+    const date = new Date('2026-09-02T07:34:00.000Z')
+    expect(formatPhTime(date)).toBe('03:34 PM')
   })
 })

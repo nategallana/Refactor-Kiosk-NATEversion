@@ -40,9 +40,9 @@ export function setActiveTimezone(tz: string): void {
 }
 
 /**
- * Parses a date value safely. If the string is in raw SQL datetime format (e.g. "2026-08-29 05:59:00"
- * without a timezone or 'Z' indicator), it is parsed as UTC so that timezone conversion to
- * the selected timezone is computed accurately.
+ * Parses a date value safely. If the string is in raw SQL datetime format (e.g. "2026-09-02 15:34:58"
+ * without a timezone or 'Z' indicator), it is parsed as Asia/Manila (+08:00) so that timezone conversion to
+ * the selected timezone is computed accurately without adding an unintended double offset.
  */
 export function parseDate(value: string | Date | number): Date {
   if (value instanceof Date) return value
@@ -52,7 +52,7 @@ export function parseDate(value: string | Date | number): Date {
   const trimmed = value.trim()
   // Matches SQL format like "2026-08-29 05:59:00" or "2026-08-29 05:59:00.123456" or "2026-08-29T05:59:00"
   if (/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:\.\d+)?$/.test(trimmed)) {
-    return new Date(trimmed.replace(' ', 'T') + 'Z')
+    return new Date(trimmed.replace(' ', 'T') + '+08:00')
   }
   return new Date(trimmed)
 }

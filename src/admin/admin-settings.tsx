@@ -62,7 +62,6 @@ export function SettingsPage() {
   const [wboxStatus, setWboxStatus] = useState('')
   const [wboxReady, setWboxReady] = useState<boolean | null>(null)
   const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null)
-  const [showScrollTop, setShowScrollTop] = useState(false)
 
   const showToast = (message: string, type: ToastType = 'success') => {
     setToast({ message, type })
@@ -80,14 +79,6 @@ export function SettingsPage() {
       })
       .catch((reason: Error) => setError(reason.message))
   }, [token])
-
-  useEffect(() => {
-    const handleScroll = () => {
-      setShowScrollTop(window.scrollY > 200)
-    }
-    window.addEventListener('scroll', handleScroll, { passive: true })
-    return () => window.removeEventListener('scroll', handleScroll)
-  }, [])
 
   const save = async (event: FormEvent) => {
     event.preventDefault()
@@ -111,6 +102,7 @@ export function SettingsPage() {
       useKioskStore.getState().fetchSettings().catch(() => {})
       setSaved('Settings saved successfully.')
       showToast('Settings saved successfully.', 'success')
+      window.scrollTo({ top: 0, behavior: 'smooth' })
       useAdminNotificationsStore.getState().addNotification({
         title: 'System Settings Saved',
         message: `Brand configuration for "${updated.brand_name}" and kiosk behavior synchronized.`,
@@ -122,6 +114,7 @@ export function SettingsPage() {
       const msg = reason instanceof Error ? reason.message : 'Unable to save settings.'
       setError(msg)
       showToast(msg, 'error')
+      window.scrollTo({ top: 0, behavior: 'smooth' })
     } finally {
       setSaving(false)
     }
@@ -1058,7 +1051,7 @@ export function SettingsPage() {
                   </label>
                   <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.2rem', flexWrap: 'wrap', alignItems: 'center' }}>
                     <span style={{ fontSize: '0.65rem', color: '#78716c' }}>Quick shortcuts:</span>
-                    {['C:\\WBOX\\Request', 'D:\\WBOX\\Request', 'C:\\POS\\Orders\\Request'].map((path) => (
+                    {['C:\\Restrnt\\3rdParty\\Request', 'C:\\WBOX\\Request', 'D:\\WBOX\\Request', 'C:\\POS\\Orders\\Request'].map((path) => (
                       <button
                         key={path}
                         type="button"
@@ -1089,7 +1082,7 @@ export function SettingsPage() {
                       <input
                         style={{ flex: 1 }}
                         value={settings.wbox_response_path ?? ''}
-                        placeholder="e.g. C:\WBOX\Response"
+                        placeholder="e.g. C:\Restrnt\3rdParty\Response"
                         onChange={(event) =>
                           setSettings({ ...settings, wbox_response_path: event.target.value || null })
                         }
@@ -1119,7 +1112,7 @@ export function SettingsPage() {
                   </label>
                   <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.2rem', flexWrap: 'wrap', alignItems: 'center' }}>
                     <span style={{ fontSize: '0.65rem', color: '#78716c' }}>Quick shortcuts:</span>
-                    {['C:\\WBOX\\Response', 'D:\\WBOX\\Response', 'C:\\POS\\Orders\\Response'].map((path) => (
+                    {['C:\\Restrnt\\3rdParty\\Response', 'C:\\WBOX\\Response', 'D:\\WBOX\\Response', 'C:\\POS\\Orders\\Response'].map((path) => (
                       <button
                         key={path}
                         type="button"
@@ -1282,39 +1275,6 @@ export function SettingsPage() {
           </div>
         </form>
       )}
-
-      {/* Floating Auto Scroll to Top Button */}
-      <button
-        type="button"
-        onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-        aria-label="Scroll to top"
-        title="Scroll to top"
-        style={{
-          position: 'fixed',
-          bottom: '2rem',
-          right: '2rem',
-          width: '3.2rem',
-          height: '3.2rem',
-          borderRadius: '50%',
-          background: 'linear-gradient(135deg, #ea580c 0%, #c2410c 100%)',
-          color: '#ffffff',
-          border: '1.5px solid rgba(255, 255, 255, 0.4)',
-          boxShadow: '0 8px 24px rgba(234, 88, 12, 0.42), 0 2px 8px rgba(0, 0, 0, 0.12)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          cursor: 'pointer',
-          zIndex: 9999,
-          opacity: showScrollTop ? 1 : 0,
-          transform: showScrollTop ? 'scale(1) translateY(0)' : 'scale(0.8) translateY(16px)',
-          pointerEvents: showScrollTop ? 'auto' : 'none',
-          transition: 'all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)',
-          fontSize: '1.3rem',
-          fontWeight: 800,
-        }}
-      >
-        ↑
-      </button>
     </AdminShell>
   )
 }

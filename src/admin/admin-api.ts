@@ -17,40 +17,60 @@ const productSchema = z.object({
   active: z.coerce.boolean(), available: z.coerce.boolean(),
 })
 const settingsSchema = z.object({
-  id: z.number(),
+  id: z.coerce.number(),
   brand_name: z.string(),
-  tax_rate_basis_points: z.number().int(),
+  tax_rate_basis_points: z.coerce.number().int(),
   service_mode: z.enum(['dine-in', 'takeout', 'both']),
   currency: z.literal('PHP'),
   counter_payment_enabled: z.coerce.boolean(),
   card_payment_enabled: z.coerce.boolean(),
-  idle_timeout_seconds: z.number().int(),
-  auto_reset_seconds: z.number().int(),
-  receipt_header: z.string().nullable(),
-  receipt_footer: z.string().nullable(),
-  welcome_background_url: z.string().nullable().optional(),
-  welcome_background_image: z.string().nullable().optional(),
-  timezone: z.string().nullable().optional(),
-  wbox_enabled: z.coerce.boolean().default(false).optional(),
-  wbox_request_path: z.string().nullable().optional(),
-  wbox_response_path: z.string().nullable().optional(),
-  wbox_kiosk_number: z.string().default('KIOSK-01').optional(),
-  wbox_version: z.string().default('1.0').optional(),
-  wbox_pdaver: z.string().default('1.0').optional(),
-  wbox_server: z.string().default('127.0.0.1').optional(),
-  wbox_device: z.string().default('POS-01').optional(),
-  wbox_product: z.string().default('RETAIL').optional(),
-  wbox_response_filename: z.string().default('response.json').optional(),
-  wbox_retry_seconds: z.number().int().default(60).optional(),
-  wbox_auth_token_configured: z.coerce.boolean().default(false).optional(),
-  created_at: z.string().nullable().optional(),
-  updated_at: z.string().nullable().optional(),
+  idle_timeout_seconds: z.coerce.number().int(),
+  auto_reset_seconds: z.coerce.number().int(),
+  receipt_header: z.string().nullish(),
+  receipt_footer: z.string().nullish(),
+  welcome_background_url: z.string().nullish(),
+  welcome_background_image: z.string().nullish(),
+  timezone: z.string().nullish(),
+  wbox_enabled: z.coerce.boolean().nullish().transform((v) => Boolean(v)),
+  wbox_request_path: z.string().nullish().transform((v) => v ?? null),
+  wbox_response_path: z.string().nullish().transform((v) => v ?? null),
+  wbox_kiosk_number: z.string().nullish().transform((v) => v || 'KIOSK-01'),
+  wbox_version: z.string().nullish().transform((v) => v || '1.0'),
+  wbox_pdaver: z.string().nullish().transform((v) => v || '1.0'),
+  wbox_server: z.string().nullish().transform((v) => v || '127.0.0.1'),
+  wbox_device: z.string().nullish().transform((v) => v || 'POS-01'),
+  wbox_product: z.string().nullish().transform((v) => v || 'RETAIL'),
+  wbox_response_filename: z.string().nullish().transform((v) => v || 'response.json'),
+  wbox_retry_seconds: z.coerce.number().nullish().transform((v) => v ?? 60),
+  wbox_auth_token_configured: z.coerce.boolean().nullish().transform((v) => Boolean(v)),
+  created_at: z.string().nullish(),
+  updated_at: z.string().nullish(),
 })
 
 export type AdminOrder = z.infer<typeof orderSchema>
 export type AdminProduct = z.infer<typeof productSchema>
 export type AdminSettings = z.infer<typeof settingsSchema>
-export type AdminSettingsUpdate = Omit<AdminSettings, 'id' | 'created_at' | 'updated_at' | 'wbox_auth_token_configured'> & {
+export type AdminSettingsUpdate = Omit<
+  AdminSettings,
+  | 'id'
+  | 'created_at'
+  | 'updated_at'
+  | 'wbox_version'
+  | 'wbox_pdaver'
+  | 'wbox_server'
+  | 'wbox_device'
+  | 'wbox_product'
+  | 'wbox_response_filename'
+  | 'wbox_retry_seconds'
+  | 'wbox_auth_token_configured'
+> & {
+  wbox_version?: string
+  wbox_pdaver?: string
+  wbox_server?: string
+  wbox_device?: string
+  wbox_product?: string
+  wbox_response_filename?: string
+  wbox_retry_seconds?: number
   wbox_auth_token_configured?: boolean
   wbox_auth_token?: string
 }
@@ -203,5 +223,36 @@ export async function retryWboxExport(token: string, orderId: number): Promise<{
 
 export async function setWboxMapping(token: string, productId: number, menukey: string): Promise<{ success: boolean }> {
   return apiRequest(`/admin/products/${productId}/wbox-mapping`, z.object({ success: z.boolean() }), token, { method: 'PUT', body: JSON.stringify({ menukey }) })
+}
+
+export type WboxSyncResult = {
+  success: boolean
+  pending?: boolean
+  inquiry_sent?: boolean
+  source_file?: string | null
+  updated?: number
+  created?: number
+  total?: number
+  message: string
+}
+
+export async function syncWboxCatalog(
+  token: string,
+  items?: Array<{ menukey: string; name: string; price: number; category?: string; available?: boolean }>
+): Promise<WboxSyncResult> {
+  const schema = z.object({
+    success: z.boolean(),
+    pending: z.boolean().optional(),
+    inquiry_sent: z.boolean().optional(),
+    source_file: z.string().nullish(),
+    updated: z.number().optional(),
+    created: z.number().optional(),
+    total: z.number().optional(),
+    message: z.string(),
+  })
+  return apiRequest('/admin/catalog/wbox-sync', schema, token, {
+    method: 'POST',
+    body: items ? JSON.stringify({ items }) : undefined,
+  })
 }
 

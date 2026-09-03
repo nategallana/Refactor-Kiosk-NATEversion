@@ -24,5 +24,9 @@ Route::prefix('v1')->group(function (): void {
         Route::get('/settings', [AdminSettingsController::class, 'show']);
         Route::put('/settings', [AdminSettingsController::class, 'update']);
         Route::post('/settings/upload-background', [AdminSettingsController::class, 'uploadBackground']);
+        Route::get('/settings/wbox/status', [AdminSettingsController::class, 'wboxStatus']);
+        Route::post('/orders/{order}/wbox-retry', [AdminOrderController::class, 'wboxRetry']);
+        Route::put('/products/{product}/wbox-mapping', [AdminCatalogController::class, 'wboxMapping']);
+        Route::post('/catalog/wbox-sync', [AdminCatalogController::class, 'wboxSync']);
     });
 });
