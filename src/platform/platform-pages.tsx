@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import { useAdminStore } from '../admin/admin-store'
 import { usePlatformStore } from './platform-store'
+import { formatPhTime, formatPhDateTime } from '../domain/datetime'
 import {
   getStores,
   createStore,
@@ -148,7 +149,7 @@ export function OverviewPage() {
                     {log.entity_type} #{log.entity_id}
                   </td>
                   <td style={{ padding: '0.75rem 0.65rem', color: 'var(--admin-muted)' }}>
-                    {new Date(log.created_at).toLocaleString()}
+                    {formatPhDateTime(log.created_at)}
                   </td>
                 </tr>
               ))}
@@ -445,7 +446,7 @@ export function TerminalsPage() {
                 </span>
               </td>
               <td style={{ padding: '0.75rem 0.65rem', color: 'var(--admin-muted)' }}>
-                {t.last_heartbeat_at ? new Date(t.last_heartbeat_at).toLocaleTimeString() : 'Never'}
+                {t.last_heartbeat_at ? formatPhTime(t.last_heartbeat_at) : 'Never'}
               </td>
             </tr>
           ))}
@@ -607,7 +608,7 @@ export function AuditLogPage() {
               <td style={{ padding: '0.75rem 0.65rem', fontSize: '0.78rem', maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {log.after || log.before || '—'}
               </td>
-              <td style={{ padding: '0.75rem 0.65rem', color: 'var(--admin-muted)' }}>{new Date(log.created_at).toLocaleString()}</td>
+              <td style={{ padding: '0.75rem 0.65rem', color: 'var(--admin-muted)' }}>{formatPhDateTime(log.created_at)}</td>
             </tr>
           ))}
         </tbody>

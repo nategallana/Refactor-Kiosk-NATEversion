@@ -1,8 +1,10 @@
-import type { ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { Brand } from '../components/brand'
 import { logout } from './admin-api'
 import { useAdminStore } from './admin-store'
+import { AdminNotificationCenter } from './admin-notifications'
+import { AdminTimeDropdown } from './admin-time-dropdown'
 
 type NavIconName = 'dashboard' | 'catalog' | 'orders' | 'kiosks' | 'reports' | 'settings'
 
@@ -33,6 +35,15 @@ export function AdminShell({ title, eyebrow, children, action }: { title: string
   const token = useAdminStore((state) => state.token)
   const user = useAdminStore((state) => state.user)
   const signOut = useAdminStore((state) => state.signOut)
+  const [showScrollTop, setShowScrollTop] = useState(false)
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowScrollTop(window.scrollY > 200)
+    }
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
 
   const leave = async () => {
     if (token) await logout(token).catch(() => undefined)
@@ -47,6 +58,13 @@ export function AdminShell({ title, eyebrow, children, action }: { title: string
         {links.map(({ label, href, icon }) => <NavLink key={href} to={href} end={href === '/admin'}>
           <NavIcon name={icon} /><span>{label}</span>
         </NavLink>)}
+        <div style={{ margin: '0.75rem 0', borderTop: '1px solid #f1f5f9' }} />
+        <a href="/kds" target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.6rem 0.8rem', color: '#64748b', fontSize: '0.875rem', textDecoration: 'none', borderRadius: '0.5rem', fontWeight: 600 }}>
+          <span>👨‍🍳</span><span>Kitchen KDS ↗</span>
+        </a>
+        <a href="/status-board" target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.6rem 0.8rem', color: '#64748b', fontSize: '0.875rem', textDecoration: 'none', borderRadius: '0.5rem', fontWeight: 600 }}>
+          <span>📺</span><span>Status Board ↗</span>
+        </a>
       </nav>
       <button className="admin-logout" onClick={leave}>
         <span aria-hidden="true">&larr;</span><strong>Logout</strong>
@@ -55,17 +73,60 @@ export function AdminShell({ title, eyebrow, children, action }: { title: string
 
     <main className="admin-main">
       <header className="admin-header">
-        <div className="admin-header__title"><p>{eyebrow}</p><h1>{title}</h1></div>
+        <div className="admin-header__left">
+          <div className="admin-header__title">
+            <p>{eyebrow}</p>
+            <h1>{title}</h1>
+          </div>
+          {action && <div className="admin-header__actions">{action}</div>}
+        </div>
         <div className="admin-header__tools">
-          {action}
-          <button className="admin-notification" aria-label="Notifications"><span /></button>
-          <div className="admin-user">
+          <AdminTimeDropdown />
+          <AdminNotificationCenter />
+          <div className="admin-user" title={`Logged in as ${user?.name ?? 'Administrator'} (${user?.role ?? 'admin'})`}>
             <span>{user?.name.slice(0, 1) ?? 'A'}</span>
-            <div><strong>{user?.name ?? 'Administrator'}</strong><small>{user?.role ?? 'admin'}</small></div>
+            <div className="admin-user__info">
+              <strong>{user?.name ?? 'Administrator'}</strong>
+              <small>{user?.role ?? 'admin'}</small>
+            </div>
           </div>
         </div>
       </header>
       <div className="admin-content">{children}</div>
     </main>
+
+    {/* Floating Auto Scroll Button */}
+    <button
+      type="button"
+      onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+      aria-label="Auto scroll to top"
+      title="Auto scroll to top"
+      className="admin-scroll-top-btn"
+      style={{
+        position: 'fixed',
+        bottom: '2rem',
+        right: '2rem',
+        width: '3.2rem',
+        height: '3.2rem',
+        borderRadius: '50%',
+        background: 'linear-gradient(135deg, #ea580c 0%, #c2410c 100%)',
+        color: '#ffffff',
+        border: '1.5px solid rgba(255, 255, 255, 0.45)',
+        boxShadow: '0 8px 24px rgba(234, 88, 12, 0.42), 0 2px 8px rgba(0, 0, 0, 0.12)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        cursor: 'pointer',
+        zIndex: 9999,
+        opacity: showScrollTop ? 1 : 0,
+        transform: showScrollTop ? 'scale(1) translateY(0)' : 'scale(0.8) translateY(16px)',
+        pointerEvents: showScrollTop ? 'auto' : 'none',
+        transition: 'all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)',
+        fontSize: '1.3rem',
+        fontWeight: 800,
+      }}
+    >
+      ↑
+    </button>
   </div>
 }

@@ -76,6 +76,7 @@ class TerminalController extends Controller
                 'idle_timeout_seconds' => (int) $settings->idle_timeout_seconds,
                 'auto_reset_seconds' => (int) $settings->auto_reset_seconds,
                 'tax_rate_basis_points' => (int) $settings->tax_rate_basis_points,
+                'welcome_background_url' => $settings->welcome_background_url ?? null,
             ],
         ]);
     }
@@ -111,6 +112,7 @@ class TerminalController extends Controller
                 'receipt_header' => $settings->receipt_header,
                 'receipt_footer' => $settings->receipt_footer,
                 'tax_rate_basis_points' => (int) $settings->tax_rate_basis_points,
+                'welcome_background_url' => $settings->welcome_background_url ?? null,
             ],
         ]);
     }

@@ -5,6 +5,7 @@ import { catalogRepository } from '../data/catalog'
 import { formatMoney, selectedUnitPrice, type CartSelection } from '../domain/order'
 import { ArrowLeft } from '../components/icons'
 import { useKioskStore } from '../store/kiosk-store'
+import { sounds } from '../domain/sound'
 
 const buildSelections = (product: Product, selected: Record<string, string[]>): CartSelection[] =>
   product.optionGroups.flatMap((group) => (selected[group.id] ?? []).flatMap((valueId) => {
@@ -74,6 +75,7 @@ export function ProductScreen() {
       selections: nextSelections,
       note: itemNote,
     })
+    sounds.playAddToCart()
     navigate('/menu')
   }
 
@@ -82,6 +84,7 @@ export function ProductScreen() {
     if (!group) return <div className="state-card standalone-state">This combo is not available right now.</div>
 
     const chooseComboValue = (valueId: string) => {
+      sounds.playTap()
       const nextSelected = { ...selected, [group.id]: [valueId] }
       setSelected(nextSelected)
       if (comboStep < product.optionGroups.length - 1) {

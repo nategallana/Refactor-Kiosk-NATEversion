@@ -5,7 +5,7 @@ import { ArrowLeft, Card, Store } from '../components/icons'
 import { Brand } from '../components/brand'
 import { calculateTotals, formatMoney, type PaymentMethod, type OrderReceipt } from '../domain/order'
 import { useKioskStore } from '../store/kiosk-store'
-import { useTerminalStore } from '../store/terminal-store'
+import { useAdminNotificationsStore } from '../admin/admin-notifications-store'
 
 const createdOrderSchema = z.object({
   order: z.object({
@@ -30,12 +30,6 @@ const createdOrderSchema = z.object({
       note: z.string(),
     })),
   }),
-  payment: z.object({
-    payment_id: z.number(),
-    status: z.string(),
-    action: z.string().nullable(),
-    action_data: z.unknown().nullable(),
-  }).optional(),
 })
 
 export function PaymentScreen() {
@@ -46,8 +40,6 @@ export function PaymentScreen() {
   const setReceipt = useKioskStore((state) => state.setReceipt)
   const settings = useKioskStore((state) => state.settings)
   
-  const apiToken = useTerminalStore((s) => s.apiToken)
-
   const cardEnabled = settings?.card_payment_enabled ?? true
   const counterEnabled = settings?.counter_payment_enabled ?? true
 
@@ -57,7 +49,6 @@ export function PaymentScreen() {
     return null
   })
   const [status, setStatus] = useState<'idle' | 'processing' | 'failed'>('idle')
-  const [errorMessage, setErrorMessage] = useState('')
   const [showConfirmModal, setShowConfirmModal] = useState(false)
   const submitting = useRef(false)
 
@@ -74,8 +65,10 @@ export function PaymentScreen() {
     setStatus('processing')
     setShowConfirmModal(false)
 
-    const apiBase = import.meta.env.VITE_API_BASE_URL || `${window.location.protocol}//${window.location.hostname}:8000/api/v1`
+    const rawApiBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE || '/api/v1'
+    const apiBase = rawApiBase.endsWith('/v1') ? rawApiBase : `${rawApiBase.replace(/\/+$/, '')}/v1`
     const orderRequest = {
+      terminal_id: 'KIOSK-01',
       dining_type: diningType,
       payment_method: method,
       items: items.map((i) => ({
@@ -93,15 +86,12 @@ export function PaymentScreen() {
     try {
       const response = await fetch(`${apiBase}/orders`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'Idempotency-Key': idempotencyKey, ...(apiToken ? { Authorization: `Bearer ${apiToken}` } : {}) },
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'Idempotency-Key': idempotencyKey },
         body: JSON.stringify(orderRequest),
       })
       const payload: unknown = await response.json().catch(() => null)
-      if (response.status === 409) {
-        throw new Error('This order has changed. Please review your cart and try again.')
-      }
       if (!response.ok) throw new Error('Order creation failed.')
-      const { order, payment } = createdOrderSchema.parse(payload)
+      const { order } = createdOrderSchema.parse(payload)
 
       const receipt: OrderReceipt = {
         id: String(order.id),
@@ -109,7 +99,6 @@ export function PaymentScreen() {
         createdAt: new Date().toISOString(),
         diningType,
         paymentMethod: method,
-        paymentStatus: payment?.status ?? 'pending',
         items: order.items.map((item, index) => ({
           id: `${order.id}-${index}`,
           productId: String(item.productId),
@@ -125,10 +114,19 @@ export function PaymentScreen() {
         total: order.total_minor,
       }
       setReceipt(receipt)
+
+      // Notify admin panel
+      useAdminNotificationsStore.getState().addNotification({
+        title: `New Order #${order.order_number} Placed`,
+        message: `Customer placed a ${diningType === 'takeout' ? 'Takeout' : 'Dine-In'} order (${order.items.length} items) for ${formatMoney(order.total_minor)} · ${method === 'card' ? 'Card at Kiosk' : 'Pay at Counter'}.`,
+        category: 'orders',
+        severity: 'success',
+        link: '/admin/orders',
+      })
+
       navigate('/ticket', { replace: true })
-    } catch (err) {
+    } catch {
       submitting.current = false
-      setErrorMessage(err instanceof Error ? err.message : 'Payment could not be completed. Please try again.')
       setStatus('failed')
     }
   }
@@ -176,7 +174,7 @@ export function PaymentScreen() {
         </div>
 
         {status === 'failed' && (
-          <p className="error-message">{errorMessage || 'Payment could not be completed. Please try again.'}</p>
+          <p className="error-message">Payment could not be completed. Please try again.</p>
         )}
 
         <button
@@ -184,7 +182,7 @@ export function PaymentScreen() {
           disabled={!method || status === 'processing'}
           onClick={handlePlaceOrderClick}
         >
-          {status === 'processing' ? 'Creating your orderÃ¢â‚¬Â¦' : 'Place order'} <span>&rarr;</span>
+          {status === 'processing' ? 'Creating your order…' : 'Place order'} <span>&rarr;</span>
         </button>
 
         <p className="secure-note">

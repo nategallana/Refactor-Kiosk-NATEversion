@@ -3,7 +3,9 @@ import { Navigate, useNavigate } from 'react-router-dom'
 import { Brand } from '../components/brand'
 import { Check } from '../components/icons'
 import { formatMoney, lineTotal } from '../domain/order'
+import { formatPhTime } from '../domain/datetime'
 import { useKioskStore } from '../store/kiosk-store'
+import { sounds } from '../domain/sound'
 
 export function TicketScreen() {
   const navigate = useNavigate()
@@ -15,19 +17,21 @@ export function TicketScreen() {
 
   useEffect(() => {
     if (!receipt) return
+    sounds.playOrderSuccess()
     const timer = setInterval(() => {
-      setSecondsLeft((prev) => Math.max(0, prev - 1))
+      setSecondsLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer)
+          reset()
+          navigate('/', { replace: true })
+          return 0
+        }
+        return prev - 1
+      })
     }, 1000)
 
     return () => clearInterval(timer)
-  }, [receipt])
-
-  useEffect(() => {
-    if (secondsLeft === 0) {
-      reset()
-      navigate('/', { replace: true })
-    }
-  }, [secondsLeft, reset, navigate])
+  }, [receipt, reset, navigate])
 
   if (!receipt) return <Navigate to="/" replace />
 
@@ -47,17 +51,34 @@ export function TicketScreen() {
           <span>YOUR ORDER NUMBER</span>
           <strong>{receipt.orderNumber}</strong>
         </div>
-        <button className="primary-button primary-button--wide" onClick={finish}>
-          Finish ({secondsLeft}s)
-        </button>
-        <button
-          type="button"
-          className="secondary-button"
-          style={{ marginTop: '0.6rem', width: '100%', minHeight: '44px' }}
-          onClick={() => window.print()}
-        >
-          Print Receipt 🖨️
-        </button>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', marginTop: '1.25rem', width: '100%' }}>
+          <button className="primary-button primary-button--wide" onClick={finish}>
+            Finish ({secondsLeft}s)
+          </button>
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={() => window.print()}
+            style={{
+              padding: '0.75rem',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.45rem',
+              fontSize: '0.85rem',
+              fontWeight: 700,
+              borderRadius: '0.75rem',
+              background: '#ffffff',
+              border: '1.5px solid #fed7aa',
+              color: '#c2410c',
+              cursor: 'pointer',
+            }}
+          >
+            <span>🖨️</span>
+            <span>Print Receipt Slip</span>
+          </button>
+        </div>
       </section>
 
       <article className="receipt">
@@ -66,7 +87,7 @@ export function TicketScreen() {
           <p style={{ fontWeight: 600, color: '#ea580c', margin: '0.2rem 0' }}>{settings.receipt_header}</p>
         )}
         <p>
-          {receipt.diningType === 'dine-in' ? 'DINE IN' : 'TAKE OUT'} · {new Date(receipt.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          {receipt.diningType === 'dine-in' ? 'DINE IN' : 'TAKE OUT'} · {formatPhTime(receipt.createdAt)}
         </p>
         <div className="receipt__number">#{receipt.orderNumber}</div>
         <hr />
@@ -94,7 +115,6 @@ export function TicketScreen() {
         </div>
         <p className="receipt__footer">
           Payment: {receipt.paymentMethod === 'counter' ? 'PAY AT COUNTER' : 'CARD'}<br />
-          Status: {receipt.paymentStatus ? receipt.paymentStatus.toUpperCase() : 'PENDING'}<br />
           {settings?.receipt_footer || 'Thank you for dining with us.'}
         </p>
       </article>

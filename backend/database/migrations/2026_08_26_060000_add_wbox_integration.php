@@ -9,26 +9,54 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('system_settings', function (Blueprint $table): void {
-            $table->boolean('wbox_enabled')->default(false);
-            $table->string('wbox_request_path', 512)->nullable();
-            $table->string('wbox_response_path', 512)->nullable();
-            $table->string('wbox_kiosk_number', 32)->default('K01');
-            $table->string('wbox_version', 32)->default('w.0.0.1');
-            $table->string('wbox_pdaver', 64)->default('GoodTaste');
-            $table->string('wbox_server', 32)->default('w');
-            $table->string('wbox_device', 64)->default('127.0.0.1');
-            $table->string('wbox_product', 32)->default('135');
-            $table->text('wbox_auth_token_encrypted')->nullable();
-            $table->string('wbox_response_filename', 128)->default('SendOrder.response');
-            $table->unsignedSmallInteger('wbox_retry_seconds')->default(30);
+            if (! Schema::hasColumn('system_settings', 'wbox_enabled')) {
+                $table->boolean('wbox_enabled')->default(false);
+            }
+            if (! Schema::hasColumn('system_settings', 'wbox_request_path')) {
+                $table->string('wbox_request_path', 512)->nullable();
+            }
+            if (! Schema::hasColumn('system_settings', 'wbox_response_path')) {
+                $table->string('wbox_response_path', 512)->nullable();
+            }
+            if (! Schema::hasColumn('system_settings', 'wbox_kiosk_number')) {
+                $table->string('wbox_kiosk_number', 32)->default('K01');
+            }
+            if (! Schema::hasColumn('system_settings', 'wbox_version')) {
+                $table->string('wbox_version', 32)->default('w.0.0.1');
+            }
+            if (! Schema::hasColumn('system_settings', 'wbox_pdaver')) {
+                $table->string('wbox_pdaver', 64)->default('GoodTaste');
+            }
+            if (! Schema::hasColumn('system_settings', 'wbox_server')) {
+                $table->string('wbox_server', 32)->default('w');
+            }
+            if (! Schema::hasColumn('system_settings', 'wbox_device')) {
+                $table->string('wbox_device', 64)->default('127.0.0.1');
+            }
+            if (! Schema::hasColumn('system_settings', 'wbox_product')) {
+                $table->string('wbox_product', 32)->default('135');
+            }
+            if (! Schema::hasColumn('system_settings', 'wbox_auth_token_encrypted')) {
+                $table->text('wbox_auth_token_encrypted')->nullable();
+            }
+            if (! Schema::hasColumn('system_settings', 'wbox_response_filename')) {
+                $table->string('wbox_response_filename', 128)->default('SendOrder.response');
+            }
+            if (! Schema::hasColumn('system_settings', 'wbox_retry_seconds')) {
+                $table->unsignedSmallInteger('wbox_retry_seconds')->default(30);
+            }
         });
 
         Schema::table('products', function (Blueprint $table): void {
-            $table->string('wbox_item_code', 64)->nullable()->index();
+            if (! Schema::hasColumn('products', 'wbox_item_code')) {
+                $table->string('wbox_item_code', 64)->nullable()->index();
+            }
         });
 
         Schema::table('order_items', function (Blueprint $table): void {
-            $table->string('wbox_item_code', 64)->nullable()->after('sku');
+            if (! Schema::hasColumn('order_items', 'wbox_item_code')) {
+                $table->string('wbox_item_code', 64)->nullable()->after('sku');
+            }
         });
 
         Schema::create('wbox_exports', function (Blueprint $table): void {

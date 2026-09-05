@@ -5,6 +5,7 @@ import { useAdminStore } from '../admin/admin-store'
 import { usePlatformStore } from './platform-store'
 import { getStores, endImpersonation } from './platform-api'
 import { logout } from '../admin/admin-api'
+import { formatPhTime } from '../domain/datetime'
 
 export function PlatformGuard({ children }: { children: React.ReactNode }) {
   const token = useAdminStore((s) => s.token)
@@ -266,7 +267,7 @@ export function PlatformLayout({ children }: { children: React.ReactNode }) {
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
               <span style={{ fontSize: '1.2rem' }}>⚠️</span>
               <span>
-                Audited Impersonation Active: Operating as <strong>{impersonation.targetUserName || 'Store Manager'}</strong> (Session expires {new Date(impersonation.expiresAt || '').toLocaleTimeString()})
+                Audited Impersonation Active: Operating as <strong>{impersonation.targetUserName || 'Store Manager'}</strong> (Session expires {formatPhTime(impersonation.expiresAt || '')})
               </span>
             </div>
             <button

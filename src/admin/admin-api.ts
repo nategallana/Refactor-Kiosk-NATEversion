@@ -1,7 +1,8 @@
 import { z } from 'zod'
 import { useAdminStore, type AdminUser } from './admin-store'
 
-const apiBase = import.meta.env.VITE_API_BASE_URL || `${window.location.protocol}//${window.location.hostname}:8000/api/v1`
+const rawApiBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE || 'http://localhost:8000/api/v1'
+const apiBase = rawApiBase.endsWith('/v1') ? rawApiBase : `${rawApiBase.replace(/\/+$/, '')}/v1`
 
 const userSchema = z.object({ id: z.number(), name: z.string(), email: z.string(), role: z.string() })
 const orderSchema = z.object({
@@ -9,53 +10,70 @@ const orderSchema = z.object({
   subtotal_minor: z.number(), tax_minor: z.number(), total_minor: z.number(), payment_status: z.string(),
   fulfillment_status: z.string(), placed_at: z.string(),
   items_json: z.string().nullable().optional(),
-  wbox_status: z.string().nullable().optional(),
-  wbox_attempt_count: z.number().nullable().optional(),
-  wbox_request_filename: z.string().nullable().optional(),
-  wbox_response_success: z.coerce.boolean().nullable().optional(),
-  wbox_response_message: z.string().nullable().optional(),
-  wbox_last_error: z.string().nullable().optional(),
-  wbox_sent_at: z.string().nullable().optional(),
-  wbox_acknowledged_at: z.string().nullable().optional(),
 })
 const productSchema = z.object({
   id: z.number(), category_id: z.number(), category_name: z.string(), sku: z.string(), name: z.string(),
   description: z.string().nullable(), price_minor: z.number(), emoji: z.string().nullable(), accent: z.string(),
   active: z.coerce.boolean(), available: z.coerce.boolean(),
-  wbox_item_code: z.string().nullable(),
 })
 const settingsSchema = z.object({
-  id: z.number(),
+  id: z.coerce.number(),
   brand_name: z.string(),
-  tax_rate_basis_points: z.number().int(),
+  tax_rate_basis_points: z.coerce.number().int(),
   service_mode: z.enum(['dine-in', 'takeout', 'both']),
   currency: z.literal('PHP'),
   counter_payment_enabled: z.coerce.boolean(),
   card_payment_enabled: z.coerce.boolean(),
-  idle_timeout_seconds: z.number().int(),
-  auto_reset_seconds: z.number().int(),
-  receipt_header: z.string().nullable(),
-  receipt_footer: z.string().nullable(),
-  wbox_enabled: z.coerce.boolean(),
-  wbox_request_path: z.string().nullable(),
-  wbox_response_path: z.string().nullable(),
-  wbox_kiosk_number: z.string(),
-  wbox_version: z.string(),
-  wbox_pdaver: z.string(),
-  wbox_server: z.string(),
-  wbox_device: z.string(),
-  wbox_product: z.string(),
-  wbox_response_filename: z.string(),
-  wbox_retry_seconds: z.number().int(),
-  wbox_auth_token_configured: z.coerce.boolean(),
-  created_at: z.string().nullable(),
-  updated_at: z.string().nullable(),
+  idle_timeout_seconds: z.coerce.number().int(),
+  auto_reset_seconds: z.coerce.number().int(),
+  receipt_header: z.string().nullish(),
+  receipt_footer: z.string().nullish(),
+  welcome_background_url: z.string().nullish(),
+  welcome_background_image: z.string().nullish(),
+  timezone: z.string().nullish(),
+  wbox_enabled: z.coerce.boolean().nullish().transform((v) => Boolean(v)),
+  wbox_request_path: z.string().nullish().transform((v) => v ?? null),
+  wbox_response_path: z.string().nullish().transform((v) => v ?? null),
+  wbox_kiosk_number: z.string().nullish().transform((v) => v || 'KIOSK-01'),
+  wbox_version: z.string().nullish().transform((v) => v || '1.0'),
+  wbox_pdaver: z.string().nullish().transform((v) => v || '1.0'),
+  wbox_server: z.string().nullish().transform((v) => v || '127.0.0.1'),
+  wbox_device: z.string().nullish().transform((v) => v || 'POS-01'),
+  wbox_product: z.string().nullish().transform((v) => v || 'RETAIL'),
+  wbox_response_filename: z.string().nullish().transform((v) => v || 'response.json'),
+  wbox_retry_seconds: z.coerce.number().nullish().transform((v) => v ?? 60),
+  wbox_auth_token_configured: z.coerce.boolean().nullish().transform((v) => Boolean(v)),
+  created_at: z.string().nullish(),
+  updated_at: z.string().nullish(),
 })
 
 export type AdminOrder = z.infer<typeof orderSchema>
 export type AdminProduct = z.infer<typeof productSchema>
 export type AdminSettings = z.infer<typeof settingsSchema>
-export type AdminSettingsUpdate = Omit<AdminSettings, 'id' | 'created_at' | 'updated_at' | 'wbox_auth_token_configured'> & { wbox_auth_token?: string }
+export type AdminSettingsUpdate = Omit<
+  AdminSettings,
+  | 'id'
+  | 'created_at'
+  | 'updated_at'
+  | 'wbox_version'
+  | 'wbox_pdaver'
+  | 'wbox_server'
+  | 'wbox_device'
+  | 'wbox_product'
+  | 'wbox_response_filename'
+  | 'wbox_retry_seconds'
+  | 'wbox_auth_token_configured'
+> & {
+  wbox_version?: string
+  wbox_pdaver?: string
+  wbox_server?: string
+  wbox_device?: string
+  wbox_product?: string
+  wbox_response_filename?: string
+  wbox_retry_seconds?: number
+  wbox_auth_token_configured?: boolean
+  wbox_auth_token?: string
+}
 
 export class RateLimitError extends Error {
   retryAfterSeconds: number
@@ -102,21 +120,12 @@ export const getDashboard = (token: string) => apiRequest('/admin/dashboard', z.
 
 export const getCatalog = (token: string) => apiRequest('/admin/catalog', z.object({ categories: z.array(z.unknown()), products: z.array(productSchema) }), token)
 export const setAvailability = (token: string, id: number, available: boolean) => apiRequest(`/admin/products/${id}/availability`, z.object({ product: z.unknown() }), token, { method: 'PATCH', body: JSON.stringify({ available }) })
-export const setWboxMapping = (token: string, id: number, wboxItemCode: string | null) => apiRequest(`/admin/products/${id}/wbox-mapping`, z.object({ product: z.unknown() }), token, { method: 'PATCH', body: JSON.stringify({ wbox_item_code: wboxItemCode }) })
 export const getOrders = (token: string) => apiRequest('/admin/orders', z.object({ orders: z.array(orderSchema) }), token)
 export const setOrderStatus = (token: string, id: number, status: string) => apiRequest(`/admin/orders/${id}/status`, z.object({ order: orderSchema }), token, { method: 'PATCH', body: JSON.stringify({ status }) })
-export const retryWboxExport = (token: string, id: number) => apiRequest(`/admin/orders/${id}/wbox/retry`, z.object({ export: z.object({ status: z.string() }).passthrough() }), token, { method: 'POST' })
 export const logout = (token: string) => apiRequest('/admin/auth/logout', z.object({ message: z.string() }), token, { method: 'POST' })
 export const getSettings = (token: string) => apiRequest('/admin/settings', z.object({ settings: settingsSchema }), token)
 export const updateSettings = (token: string, settings: AdminSettingsUpdate) =>
   apiRequest('/admin/settings', z.object({ settings: settingsSchema }), token, { method: 'PUT', body: JSON.stringify(settings) })
-export const getWboxStatus = (token: string) => apiRequest('/admin/wbox/status', z.object({
-  connection: z.object({
-    request_path: z.object({ path: z.string().nullable(), exists: z.boolean(), writable: z.boolean() }),
-    response_path: z.object({ path: z.string().nullable(), exists: z.boolean(), readable: z.boolean() }),
-    credentials_configured: z.boolean(),
-  }),
-}), token)
 
 // Terminal Management
 const authHeaders = (token: string) => ({ Authorization: `Bearer ${token}` })
@@ -127,16 +136,6 @@ export async function getTerminals(token: string) {
   return res.json()
 }
 
-export async function createActivationCode(token: string, terminalId?: string) {
-  const res = await fetch(`${apiBase}/admin/terminal-activation-codes`, {
-    method: 'POST',
-    headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
-    body: JSON.stringify({ terminal_id: terminalId || null, expires_in_minutes: 30 }),
-  })
-  const payload = await res.json().catch(() => ({}))
-  if (!res.ok) throw new Error(payload.message || 'Failed to create activation code')
-  return payload as { activation_code: string; expires_at: string }
-}
 export async function createTerminal(token: string, data: { terminal_id: string; name: string; location?: string; service_mode?: string }) {
   const res = await fetch(`${apiBase}/admin/terminals`, {
     method: 'POST',
@@ -175,3 +174,88 @@ export async function sendTerminalCommand(token: string, terminalId: string, com
   if (!res.ok) throw new Error('Failed to send command')
   return res.json()
 }
+
+export async function uploadWelcomeBackground(token: string, file: File): Promise<{ url: string }> {
+  const formData = new FormData()
+  formData.append('image', file)
+  const res = await fetch(`${apiBase}/admin/settings/upload-background`, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: formData,
+  })
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({ message: 'Failed to upload background image' }))
+    throw new Error(errorData.message || 'Failed to upload background image')
+  }
+  return res.json()
+}
+
+export async function createActivationCode(token: string): Promise<{ activation_code: string; expires_at: string }> {
+  return apiRequest('/admin/terminals/activation-codes', z.object({ activation_code: z.string(), expires_at: z.string() }), token, { method: 'POST' })
+}
+
+export async function getWboxStatus(token: string): Promise<{
+  connection: {
+    request_path: { exists: boolean; writable: boolean }
+    response_path: { exists: boolean; readable: boolean }
+    credentials_configured: boolean
+  }
+}> {
+  return apiRequest(
+    '/admin/settings/wbox/status',
+    z.object({
+      connection: z.object({
+        request_path: z.object({ exists: z.boolean(), writable: z.boolean() }),
+        response_path: z.object({ exists: z.boolean(), readable: z.boolean() }),
+        credentials_configured: z.boolean(),
+      }),
+    }),
+    token
+  )
+}
+
+export async function retryWboxExport(token: string, orderId: number): Promise<{ success: boolean; message: string }> {
+  return apiRequest(`/admin/orders/${orderId}/wbox-retry`, z.object({ success: z.boolean(), message: z.string() }), token, { method: 'POST' })
+}
+
+export async function setWboxMapping(token: string, productId: number, menukey: string): Promise<{ success: boolean }> {
+  return apiRequest(`/admin/products/${productId}/wbox-mapping`, z.object({ success: z.boolean() }), token, { method: 'PUT', body: JSON.stringify({ menukey }) })
+}
+
+export type WboxSyncResult = {
+  success: boolean
+  pending?: boolean
+  inquiry_sent?: boolean
+  source_file?: string | null
+  updated?: number
+  created?: number
+  total?: number
+  synced_count?: number
+  message: string
+}
+
+export async function syncWboxCatalog(
+  token: string,
+  payload?: { items?: unknown[] } | Array<{ menukey: string; name: string; price: number; category?: string; available?: boolean }>
+): Promise<WboxSyncResult> {
+  const schema = z.object({
+    success: z.boolean(),
+    pending: z.boolean().optional(),
+    inquiry_sent: z.boolean().optional(),
+    source_file: z.string().nullish(),
+    updated: z.number().optional(),
+    created: z.number().optional(),
+    total: z.number().optional(),
+    synced_count: z.number().optional(),
+    message: z.string(),
+  })
+  const body = Array.isArray(payload) ? { items: payload } : payload
+  return apiRequest('/admin/catalog/wbox-sync', schema, token, {
+    method: 'POST',
+    body: body ? JSON.stringify(body) : undefined,
+  })
+}
+

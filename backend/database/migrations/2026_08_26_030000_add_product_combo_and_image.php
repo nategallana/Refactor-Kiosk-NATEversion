@@ -9,8 +9,12 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('products', function (Blueprint $table): void {
-            $table->boolean('combo')->default(false)->after('available');
-            $table->string('image_url', 500)->nullable()->after('combo');
+            if (! Schema::hasColumn('products', 'combo')) {
+                $table->boolean('combo')->default(false)->after('available');
+            }
+            if (! Schema::hasColumn('products', 'image_url')) {
+                $table->string('image_url', 500)->nullable()->after('combo');
+            }
         });
     }
 

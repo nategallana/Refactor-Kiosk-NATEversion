@@ -1,12 +1,30 @@
 import { useNavigate } from 'react-router-dom'
 import { Brand } from '../components/brand'
 import { useKioskStore } from '../store/kiosk-store'
+import { isVideoUrl } from '../domain/media'
 
 export function WelcomeScreen() {
   const navigate = useNavigate()
-  const brandName = useKioskStore((state) => state.settings?.brand_name || 'KIOSK')
+  const brandName = useKioskStore((state) => state.settings?.brand_name ?? 'our restaurant')
+  const backgroundUrl = useKioskStore((state) => state.settings?.welcome_background_url) || (typeof window !== 'undefined' ? localStorage.getItem('kiosk_welcome_background') : null)
 
-  return <main className="welcome screen-enter">
+  const isVideo = isVideoUrl(backgroundUrl)
+  const containerStyle: React.CSSProperties = backgroundUrl && !isVideo
+    ? { backgroundImage: `url("${backgroundUrl}")` }
+    : {}
+
+  return <main className={`welcome screen-enter ${backgroundUrl ? 'welcome--custom-bg' : ''}`} style={containerStyle}>
+    {isVideo && backgroundUrl && (
+      <video
+        className="welcome__video-bg"
+        src={backgroundUrl}
+        autoPlay
+        loop
+        muted
+        playsInline
+        aria-hidden="true"
+      />
+    )}
     <section className="welcome__content">
       <Brand />
       <div className="welcome__message">

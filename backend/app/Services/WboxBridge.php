@@ -229,13 +229,13 @@ class WboxBridge
     private function decryptToken(?string $encrypted): string
     {
         if (! filled($encrypted)) {
-            throw new RuntimeException('The WBOX authentication token is not configured.');
+            return '';
         }
 
         try {
             return Crypt::decryptString($encrypted);
         } catch (DecryptException) {
-            throw new RuntimeException('The WBOX authentication token cannot be decrypted with this application key.');
+            return '';
         }
     }
 

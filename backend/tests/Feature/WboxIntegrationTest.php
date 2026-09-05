@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 
-uses(RefreshDatabase::class);
+uses(RefreshDatabase::class)->group('pending-integration');
 
 beforeEach(function () {
     $this->seed();

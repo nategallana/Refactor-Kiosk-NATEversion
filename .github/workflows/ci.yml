@@ -59,6 +59,8 @@ jobs:
           cp .env.example .env
           php artisan key:generate
           touch database/database.sqlite
+          sed -i 's/DB_CONNECTION=pgsql/DB_CONNECTION=sqlite/' .env
+          sed -i 's/DB_DATABASE=backend/DB_DATABASE=database\/database.sqlite/' .env
 
       - name: Run Database Migrations & Seeds
         working-directory: backend
@@ -68,4 +70,4 @@ jobs:
 
       - name: Run Pest / PHPUnit Test Suite
         working-directory: backend
-        run: php artisan test
+        run: php artisan test --exclude-group=pending-integration

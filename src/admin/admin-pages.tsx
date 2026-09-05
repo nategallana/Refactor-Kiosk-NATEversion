@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { formatMoney } from '../domain/order'
-import { getCatalog, getDashboard, getOrders, retryWboxExport, setAvailability, setOrderStatus, setWboxMapping, type AdminOrder, type AdminProduct } from './admin-api'
+import { formatPhTime, getPhHour } from '../domain/datetime'
+import { getCatalog, getDashboard, getOrders, retryWboxExport, setAvailability, setOrderStatus, syncWboxCatalog, type AdminOrder, type AdminProduct } from './admin-api'
 import { AdminShell } from './admin-shell'
 import { useAdminStore } from './admin-store'
+import { useAdminNotificationsStore } from './admin-notifications-store'
+import { Toast } from '../components/toast'
 
 const statuses = ['pending', 'confirmed', 'preparing', 'ready', 'completed', 'cancelled']
-const time = (value: string) => new Date(value).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+const time = (value: string) => formatPhTime(value)
 
 function AdminState({ message }: { message: string }) {
   return <div className="admin-state">{message}</div>
@@ -25,43 +28,103 @@ export function DashboardPage() {
     getDashboard(token).then(setData).catch((reason: Error) => setError(reason.message))
   }, [token])
 
-  return <AdminShell title="Good morning." eyebrow="TODAY AT A GLANCE" action={<span className="admin-live"><i /> Live operations</span>}>
-    {error ? <AdminState message={error} /> : !data ? <AdminState message="Loading today's operation..." /> : <>
-      <section className="metric-grid">
-        <article><span>Net sales</span><strong>{formatMoney(data.summary.sales_minor)}</strong><small>Paid orders today</small></article>
-        <article><span>Orders today</span><strong>{data.summary.orders}</strong><small>Across all terminals</small></article>
-        <article><span>Active orders</span><strong>{data.summary.active_orders}</strong><small>Pending through ready</small></article>
-        <article><span>Menu available</span><strong>{data.summary.available_products}</strong><small>Active products</small></article>
-      </section>
-      <section className="admin-panel">
-        <div className="admin-panel__heading"><div><p>ORDER QUEUE</p><h2>Recent orders</h2></div><a href="/admin/orders">View all &rarr;</a></div>
-        <OrderTable orders={data.recent_orders} compact />
-      </section>
-      <section className="admin-split">
-        <article className="admin-panel">
-          <div className="admin-panel__heading"><div><p>QUICK ACTIONS</p><h2>Keep things moving</h2></div></div>
-          <div className="quick-actions"><a href="/admin/catalog">+ Add a product</a><a href="/admin/orders">Process orders</a><a href="/admin/kiosks">Check terminals</a></div>
-        </article>
-        <article className="admin-panel admin-note"><p>SHIFT NOTE</p><h2>Everything looks steady.</h2><span>All systems operational and ready for orders.</span></article>
-      </section>
-    </>}
-  </AdminShell>
-}
+  const chartData = useMemo(() => {
+    if (!data?.recent_orders) return []
+    const hours = ['08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00']
+    const buckets: Record<string, number> = {
+      '08:00': 0, '10:00': 0, '12:00': 0, '14:00': 0, '16:00': 0, '18:00': 0, '20:00': 0,
+    }
 
-function OrderTable({ orders, compact = false, onStatus }: { orders: AdminOrder[]; compact?: boolean; onStatus?: (order: AdminOrder, status: string) => void }) {
-  if (!orders.length) {
-    return <div className="admin-state" style={{ padding: '2rem 1rem' }}>No orders placed today.</div>
-  }
-  return <div className="admin-table-wrap"><table className="admin-table">
-    <thead><tr><th>Order</th><th>Terminal</th><th>Service</th><th>Placed</th><th>Total</th><th>Status</th></tr></thead>
-    <tbody>{orders.map((order) => <tr key={order.id}>
-      <td><strong>#{order.order_number}</strong></td><td>{order.terminal_id}</td><td>{order.dining_type}</td><td>{time(order.placed_at)}</td><td>{formatMoney(order.total_minor)}</td>
-      <td>{compact
-        ? <span className={'status status--' + order.fulfillment_status}>{order.fulfillment_status}</span>
-        : <select value={order.fulfillment_status} onChange={(event) => onStatus?.(order, event.target.value)}>{statuses.map((status) => <option key={status}>{status}</option>)}</select>}
-      </td>
-    </tr>)}</tbody>
-  </table></div>
+    data.recent_orders.forEach((ord) => {
+      if (!ord.placed_at) return
+      const h = getPhHour(ord.placed_at)
+      let key = '20:00'
+      if (h < 10) key = '08:00'
+      else if (h < 12) key = '10:00'
+      else if (h < 14) key = '12:00'
+      else if (h < 16) key = '14:00'
+      else if (h < 18) key = '16:00'
+      else if (h < 20) key = '18:00'
+      buckets[key] = (buckets[key] ?? 0) + ord.total_minor
+    })
+
+    const maxVal = Math.max(...Object.values(buckets), 50000)
+    return hours.map((hour) => ({
+      hour,
+      amount: buckets[hour] ?? 0,
+      height: Math.max(12, Math.round(((buckets[hour] ?? 0) / maxVal) * 100)),
+    }))
+  }, [data])
+
+  return (
+    <AdminShell title="Dashboard" eyebrow="OPERATIONS">
+      {error && <div className="admin-error">{error}</div>}
+      {!data && !error && <AdminState message="Loading dashboard metrics..." />}
+      {data && (
+        <>
+          <section className="metric-grid">
+            <article><span>Sales today</span><strong>{formatMoney(data.summary.sales_minor)}</strong><small>Gross transactions</small></article>
+            <article><span>Total orders</span><strong>{data.summary.orders}</strong><small>{data.summary.active_orders} open currently</small></article>
+            <article><span>Active items</span><strong>{data.summary.available_products}</strong><small>Ready on kiosk</small></article>
+            <article><span>Store mode</span><strong style={{ fontSize: '1.4rem' }}>Philippine Standard</strong><small>GMT+8 Manila Active</small></article>
+          </section>
+
+          <section className="dashboard-grid">
+            <div className="admin-panel">
+              <div className="panel-header">
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: '#1f1816' }}>Hourly Sales Activity</h3>
+                  <small style={{ color: '#78716c' }}>Real-time revenue distribution today</small>
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.8rem', height: '180px', paddingTop: '1.5rem', borderBottom: '1px solid #f0e8e2' }}>
+                {chartData.map((item) => (
+                  <div key={item.hour} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', justifyContent: 'flex-end', gap: '0.4rem' }}>
+                    <div
+                      style={{
+                        width: '100%',
+                        maxWidth: '2.5rem',
+                        height: `${item.height}%`,
+                        background: 'linear-gradient(180deg, #ea580c 0%, #fed7aa 100%)',
+                        borderRadius: '0.35rem 0.35rem 0 0',
+                        transition: 'height 0.3s ease',
+                      }}
+                      title={`${item.hour}: ${formatMoney(item.amount)}`}
+                    />
+                    <span style={{ fontSize: '0.68rem', color: '#78716c', fontWeight: 600 }}>{item.hour}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="admin-panel">
+              <div className="panel-header">
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: '#1f1816' }}>Recent Orders</h3>
+                  <small style={{ color: '#78716c' }}>Live kiosk customer queue</small>
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                {data.recent_orders.slice(0, 5).map((ord) => (
+                  <div key={ord.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.6rem 0.8rem', background: '#fff8f5', borderRadius: '0.5rem', border: '1px solid #fed7aa' }}>
+                    <div>
+                      <strong style={{ color: '#1f1816', fontSize: '0.82rem' }}>#{ord.order_number}</strong>
+                      <span style={{ marginLeft: '0.5rem', fontSize: '0.7rem', color: '#78716c' }}>{time(ord.placed_at)}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                      <span style={{ fontWeight: 700, fontSize: '0.8rem', color: '#ea580c' }}>{formatMoney(ord.total_minor)}</span>
+                      <span className={`status status--${ord.fulfillment_status}`} style={{ fontSize: '0.65rem', padding: '0.2rem 0.5rem' }}>{ord.fulfillment_status}</span>
+                    </div>
+                  </div>
+                ))}
+                {data.recent_orders.length === 0 && <p style={{ color: '#78716c', fontSize: '0.8rem', textAlign: 'center', padding: '1rem' }}>No orders placed today.</p>}
+              </div>
+            </div>
+          </section>
+        </>
+      )}
+    </AdminShell>
+  )
 }
 
 const productImages: Record<string, string> = {
@@ -101,7 +164,6 @@ export function CatalogPage() {
   // Form states
   const [editName, setEditName] = useState('')
   const [editSku, setEditSku] = useState('')
-  const [editWboxItemCode, setEditWboxItemCode] = useState('')
   const [editCategory, setEditCategory] = useState('Burgers')
   const [editDesc, setEditDesc] = useState('')
   const [editPrice, setEditPrice] = useState<number>(0)
@@ -109,7 +171,9 @@ export function CatalogPage() {
   const [isCombo, setIsCombo] = useState(false)
   const [editAccent, setEditAccent] = useState('#fff7ed')
   const [editImageUrl, setEditImageUrl] = useState<string>('')
+  const [editWboxItemCode, setEditWboxItemCode] = useState('')
   const [toast, setToast] = useState<string | null>(null)
+  const [syncingWbox, setSyncingWbox] = useState(false)
 
   // Combo Option Groups state
   const [comboSteps, setComboSteps] = useState<Array<{ title: string; options: Array<{ name: string; extra: number }> }>>([
@@ -124,6 +188,46 @@ export function CatalogPage() {
   const showToast = (msg: string) => {
     setToast(msg)
     window.setTimeout(() => setToast(null), 3000)
+  }
+
+  const handleSyncWbox = async () => {
+    setSyncingWbox(true)
+    try {
+      const res = await syncWboxCatalog(token)
+      if (res.pending) {
+        showToast(res.message)
+        useAdminNotificationsStore.getState().addNotification({
+          title: 'WBOX Menu Inquiry Sent',
+          message: 'Inquiry packet QUERY_MENU.json written to C:\\Restrnt\\3rdParty\\Request. Awaiting POS response.',
+          category: 'catalog',
+          severity: 'info',
+          link: '/admin/catalog',
+        })
+      } else {
+        showToast(res.message)
+        useAdminNotificationsStore.getState().addNotification({
+          title: 'WBOX Menu Synced',
+          message: res.message,
+          category: 'catalog',
+          severity: 'success',
+          link: '/admin/catalog',
+        })
+        const refreshed = await getCatalog(token)
+        setProducts(refreshed.products)
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to sync catalog with WBOX.'
+      showToast(msg)
+      useAdminNotificationsStore.getState().addNotification({
+        title: 'WBOX Sync Failed',
+        message: msg,
+        category: 'catalog',
+        severity: 'error',
+        link: '/admin/catalog',
+      })
+    } finally {
+      setSyncingWbox(false)
+    }
   }
 
   const getProductImage = (sku: string) => customImages[sku] || productImages[sku]
@@ -146,6 +250,13 @@ export function CatalogPage() {
     try {
       await setAvailability(token, product.id, available)
       showToast(`${product.name} is now ${available ? 'Available' : 'Unavailable'}`)
+      useAdminNotificationsStore.getState().addNotification({
+        title: `Product ${available ? 'Available' : 'Unavailable'}`,
+        message: `${product.name} (${product.sku}) is now ${available ? 'available' : 'unavailable'} for kiosk ordering.`,
+        category: 'catalog',
+        severity: 'info',
+        link: '/admin/catalog',
+      })
     } catch (reason) {
       setProducts((items) => items.map((item) => item.id === product.id ? product : item))
       setError(reason instanceof Error ? reason.message : 'Update failed.')
@@ -157,7 +268,6 @@ export function CatalogPage() {
     setActiveTab('info')
     setEditName(product.name)
     setEditSku(product.sku)
-    setEditWboxItemCode(product.wbox_item_code ?? '')
     setEditCategory(product.category_name)
     setEditDesc(product.description || '')
     setEditPrice(product.price_minor / 100)
@@ -183,7 +293,6 @@ export function CatalogPage() {
       ...editingProduct,
       name: editName.trim() || editingProduct.name,
       sku: targetSku,
-      wbox_item_code: editWboxItemCode.trim() || null,
       category_name: editCategory,
       description: editDesc.trim() || null,
       price_minor: updatedPriceMinor,
@@ -195,12 +304,17 @@ export function CatalogPage() {
     setEditingProduct(null)
     showToast(`✅ Saved changes for ${updatedProduct.name}`)
 
+    useAdminNotificationsStore.getState().addNotification({
+      title: 'Menu Product Updated',
+      message: `${updatedProduct.name} (${updatedProduct.sku}) updated in menu catalog.`,
+      category: 'catalog',
+      severity: 'success',
+      link: '/admin/catalog',
+    })
+
     try {
       if (editAvailable !== editingProduct.available) {
         await setAvailability(token, editingProduct.id, editAvailable)
-      }
-      if ((editWboxItemCode.trim() || null) !== editingProduct.wbox_item_code) {
-        await setWboxMapping(token, editingProduct.id, editWboxItemCode.trim() || null)
       }
     } catch {
       // ignore
@@ -217,10 +331,43 @@ export function CatalogPage() {
     title="Catalog"
     eyebrow="MENU MANAGEMENT"
     action={
-      <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: '0.45rem', alignItems: 'center', flexWrap: 'wrap' }}>
         <button
           className="admin-primary admin-primary--small"
-          style={{ background: '#fff7ed', border: '1.5px solid #ea580c', color: '#ea580c' }}
+          style={{
+            background: '#ffffff',
+            border: '1.5px solid #fed7aa',
+            color: '#c2410c',
+            fontWeight: 700,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.35rem',
+            padding: '0.42rem 0.8rem',
+            fontSize: '0.74rem',
+            borderRadius: '0.55rem',
+            cursor: 'pointer',
+            whiteSpace: 'nowrap',
+          }}
+          disabled={syncingWbox}
+          onClick={handleSyncWbox}
+          title="Sync menu items & prices from WBOX POS"
+        >
+          <span style={{ fontSize: '0.85rem' }}>{syncingWbox ? '⏳' : '↻'}</span>
+          <span>{syncingWbox ? 'Syncing...' : 'Sync WBOX'}</span>
+        </button>
+        <button
+          className="admin-primary admin-primary--small"
+          style={{
+            background: '#fff7ed',
+            border: '1.5px solid #ea580c',
+            color: '#ea580c',
+            padding: '0.42rem 0.8rem',
+            fontSize: '0.74rem',
+            borderRadius: '0.55rem',
+            fontWeight: 700,
+            whiteSpace: 'nowrap',
+            cursor: 'pointer',
+          }}
           onClick={() => {
             openEditModal({
               id: Date.now(),
@@ -234,16 +381,23 @@ export function CatalogPage() {
               accent: '#fff4ed',
               active: true,
               available: true,
-              wbox_item_code: null,
             })
             setActiveTab('combo')
             setIsCombo(true)
           }}
         >
-          🍱 + Create combo meal
+          🍱 + Combo meal
         </button>
         <button
           className="admin-primary admin-primary--small"
+          style={{
+            padding: '0.42rem 0.85rem',
+            fontSize: '0.74rem',
+            borderRadius: '0.55rem',
+            fontWeight: 700,
+            whiteSpace: 'nowrap',
+            cursor: 'pointer',
+          }}
           onClick={() => openEditModal({
             id: Date.now(),
             category_id: 1,
@@ -256,7 +410,6 @@ export function CatalogPage() {
             accent: '#fff7ed',
             active: true,
             available: true,
-            wbox_item_code: null,
           })}
         >
           + New product
@@ -264,7 +417,7 @@ export function CatalogPage() {
       </div>
     }
   >
-    {toast && <div className="toast-notification" style={{ position: 'fixed', top: '1.5rem', right: '1.5rem', background: '#ea580c', color: '#fff', padding: '0.8rem 1.4rem', borderRadius: '0.6rem', fontWeight: 700, zIndex: 9999 }}>{toast}</div>}
+    <Toast message={toast} onClose={() => setToast(null)} />
     {error && <div className="admin-error">{error}</div>}
     <section className="admin-panel">
       <div className="admin-panel__heading">
@@ -313,21 +466,58 @@ export function CatalogPage() {
     {/* Full-Featured Product & Combo Studio Modal */}
     {editingProduct && (
       <div className="modal-backdrop" onClick={() => setEditingProduct(null)}>
-        <div className="idle-modal" style={{ maxWidth: '36rem', width: '92vw', textAlign: 'left', maxHeight: '90vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div
+          style={{
+            background: '#ffffff',
+            borderRadius: '1rem',
+            boxShadow: '0 25px 60px rgba(0, 0, 0, 0.35)',
+            border: '1px solid #fed7aa',
+            width: 'min(42rem, 94vw)',
+            maxHeight: '90vh',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+            textAlign: 'left',
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Fixed Modal Header */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.2rem 1.6rem', borderBottom: '1px solid #fed7aa', background: '#fffaf5' }}>
             <div>
-              <p className="eyebrow" style={{ color: '#ea580c', fontWeight: 800 }}>MENU MANAGEMENT</p>
-              <h2 style={{ fontFamily: 'Georgia, serif', margin: '0.2rem 0 0', color: '#1f1816', fontSize: '1.4rem' }}>
-                Edit Menu Item
+              <p className="eyebrow" style={{ color: '#ea580c', fontWeight: 800, margin: 0, fontSize: '0.65rem', letterSpacing: '0.1em' }}>
+                {isCombo ? 'COMBO MEAL BUILDER' : 'MENU MANAGEMENT'}
+              </p>
+              <h2 style={{ fontFamily: 'Georgia, serif', margin: '0.2rem 0 0', color: '#1f1816', fontSize: '1.35rem' }}>
+                {editingProduct.name ? `Edit: ${editingProduct.name}` : isCombo ? 'Create Combo Meal' : 'Add New Product'}
               </h2>
             </div>
-            <span style={{ background: '#fff7ed', border: '1px solid #fed7aa', color: '#ea580c', borderRadius: '0.45rem', padding: '0.3rem 0.6rem', fontSize: '0.72rem', fontWeight: 800 }}>
-              {editSku || editingProduct.sku}
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+              <span style={{ background: '#fff7ed', border: '1px solid #fed7aa', color: '#ea580c', borderRadius: '0.45rem', padding: '0.3rem 0.65rem', fontSize: '0.72rem', fontWeight: 800 }}>
+                {editSku || editingProduct.sku}
+              </span>
+              <button
+                type="button"
+                onClick={() => setEditingProduct(null)}
+                aria-label="Close modal"
+                style={{
+                  background: 'none',
+                  border: 0,
+                  color: '#78716c',
+                  fontSize: '1.25rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  padding: '0.2rem 0.5rem',
+                  borderRadius: '0.35rem',
+                  lineHeight: 1,
+                }}
+              >
+                ✕
+              </button>
+            </div>
           </div>
 
-          {/* Navigation Tabs */}
-          <div style={{ display: 'flex', gap: '0.5rem', borderBottom: '1px solid #fed7aa', margin: '1rem 0 1.2rem', paddingBottom: '0.3rem' }}>
+          {/* Navigation Tabs Bar */}
+          <div style={{ display: 'flex', gap: '0.5rem', padding: '0.75rem 1.6rem', borderBottom: '1px solid #f0e8e2', background: '#fff' }}>
             <button
               type="button"
               onClick={() => setActiveTab('info')}
@@ -378,340 +568,375 @@ export function CatalogPage() {
             </button>
           </div>
 
-          <form onSubmit={handleSaveEdit} style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
-            {/* Tab 1: Product Details */}
-            {activeTab === 'info' && (
-              <>
-                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '0.8rem' }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: '#574d49', marginBottom: '0.3rem' }}>
-                      Product Name
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={editName}
-                      onChange={(e) => setEditName(e.target.value)}
-                      style={{ width: '100%', padding: '0.7rem', borderRadius: '0.55rem', border: '1px solid #fed7aa', fontSize: '0.8rem' }}
-                    />
-                  </div>
-
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: '#574d49', marginBottom: '0.3rem' }}>
-                      SKU Code
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={editSku}
-                      onChange={(e) => setEditSku(e.target.value)}
-                      style={{ width: '100%', padding: '0.7rem', borderRadius: '0.55rem', border: '1px solid #fed7aa', fontSize: '0.8rem' }}
-                    />
-                  </div>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem' }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: '#574d49', marginBottom: '0.3rem' }}>
-                      Category
-                    </label>
-                    <select
-                      value={editCategory}
-                      onChange={(e) => {
-                        setEditCategory(e.target.value)
-                        if (e.target.value === 'Combo Meals') setIsCombo(true)
-                      }}
-                      style={{ width: '100%', padding: '0.7rem', borderRadius: '0.55rem', border: '1px solid #fed7aa', fontSize: '0.8rem', background: '#fff' }}
-                    >
-                      <option value="Burgers">Burgers</option>
-                      <option value="Combo Meals">Combo Meals</option>
-                      <option value="Meals">Meals</option>
-                      <option value="Sides">Sides</option>
-                      <option value="Drinks">Drinks</option>
-                      <option value="Desserts">Desserts</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: '#574d49', marginBottom: '0.3rem' }}>
-                      Base Price (PHP ₱)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      required
-                      value={editPrice}
-                      onChange={(e) => setEditPrice(parseFloat(e.target.value) || 0)}
-                      style={{ width: '100%', padding: '0.7rem', borderRadius: '0.55rem', border: '1px solid #fed7aa', fontSize: '0.8rem' }}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: '#574d49', marginBottom: '0.3rem' }}>
-                    Description & Ingredients
-                  </label>
-                  <textarea
-                    rows={2}
-                    value={editDesc}
-                    onChange={(e) => setEditDesc(e.target.value)}
-                    placeholder="Short description displayed on the item detail screen..."
-                    style={{ width: '100%', padding: '0.7rem', borderRadius: '0.55rem', border: '1px solid #fed7aa', fontSize: '0.8rem', resize: 'vertical' }}
-                  />
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem', background: '#fff8f5', borderRadius: '0.65rem', border: '1px solid #fed7aa' }}>
-                  <div>
-                    <strong style={{ display: 'block', fontSize: '0.8rem', color: '#1f1816' }}>Available on Customer Kiosk</strong>
-                    <small style={{ color: '#78716c', fontSize: '0.68rem' }}>When disabled, item is marked unavailable and cannot be ordered.</small>
-                  </div>
-                  <label className="switch">
-                    <input
-                      type="checkbox"
-                      checked={editAvailable}
-                      onChange={(e) => setEditAvailable(e.target.checked)}
-                    />
-                    <span />
-                  </label>
-                </div>
-              </>
-            )}
-
-            {/* Tab 2: Combo & Options Builder */}
-            {activeTab === 'combo' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem', background: '#fff8f5', borderRadius: '0.65rem', border: '1px solid #fed7aa' }}>
-                  <div>
-                    <strong style={{ display: 'block', fontSize: '0.8rem', color: '#1f1816' }}>Enable Multi-Step Combo Flow</strong>
-                    <small style={{ color: '#78716c', fontSize: '0.68rem' }}>Guides customer through step-by-step choices (e.g. Choose burger, side, drink).</small>
-                  </div>
-                  <label className="switch">
-                    <input
-                      type="checkbox"
-                      checked={isCombo}
-                      onChange={(e) => setIsCombo(e.target.checked)}
-                    />
-                    <span />
-                  </label>
-                </div>
-
-                <div style={{ borderTop: '1px solid #f0e8e2', paddingTop: '0.8rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
-                    <small style={{ color: '#ea580c', fontWeight: 800, fontSize: '0.65rem', letterSpacing: '0.08em' }}>
-                      CONFIGURED STEPS & OPTIONS
-                    </small>
-                    <button
-                      type="button"
-                      onClick={() => setComboSteps([...comboSteps, { title: 'New Option Step', options: [{ name: 'Option 1', extra: 0 }] }])}
-                      style={{ background: '#fff7ed', border: '1px solid #fed7aa', color: '#ea580c', borderRadius: '0.4rem', padding: '0.25rem 0.6rem', fontSize: '0.68rem', fontWeight: 750, cursor: 'pointer' }}
-                    >
-                      + Add Step
-                    </button>
-                  </div>
-
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.7rem' }}>
-                    {comboSteps.map((step, sIdx) => (
-                      <div key={sIdx} style={{ background: '#ffffff', border: '1px solid #fed7aa', borderRadius: '0.65rem', padding: '0.75rem' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                          <input
-                            type="text"
-                            value={step.title}
-                            onChange={(e) => {
-                              const val = e.target.value
-                              setComboSteps((steps) => steps.map((s, i) => i === sIdx ? { ...s, title: val } : s))
-                            }}
-                            style={{ fontWeight: 750, fontSize: '0.78rem', color: '#1f1816', border: '1px solid transparent', borderBottom: '1px dashed #fed7aa', padding: '0.2rem', width: '70%' }}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setComboSteps((steps) => steps.filter((_, i) => i !== sIdx))}
-                            style={{ background: '#fef2f2', border: '1px solid #fca5a5', color: '#dc2626', borderRadius: '0.35rem', padding: '0.2rem 0.5rem', fontSize: '0.65rem', cursor: 'pointer' }}
-                          >
-                            Remove Step
-                          </button>
-                        </div>
-
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                          {step.options.map((opt, oIdx) => (
-                            <div key={oIdx} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                              <input
-                                type="text"
-                                value={opt.name}
-                                placeholder="Option name"
-                                onChange={(e) => {
-                                  const val = e.target.value
-                                  setComboSteps((steps) => steps.map((s, i) => i === sIdx ? { ...s, options: s.options.map((o, j) => j === oIdx ? { ...o, name: val } : o) } : s))
-                                }}
-                                style={{ flex: 1, padding: '0.45rem', borderRadius: '0.4rem', border: '1px solid #e7dfd8', fontSize: '0.75rem' }}
-                              />
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', width: '6.5rem' }}>
-                                <span style={{ fontSize: '0.72rem', color: '#78716c' }}>+₱</span>
-                                <input
-                                  type="number"
-                                  value={opt.extra}
-                                  onChange={(e) => {
-                                    const val = parseFloat(e.target.value) || 0
-                                    setComboSteps((steps) => steps.map((s, i) => i === sIdx ? { ...s, options: s.options.map((o, j) => j === oIdx ? { ...o, extra: val } : o) } : s))
-                                  }}
-                                  style={{ width: '100%', padding: '0.45rem', borderRadius: '0.4rem', border: '1px solid #e7dfd8', fontSize: '0.75rem' }}
-                                />
-                              </div>
-                            </div>
-                          ))}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setComboSteps((steps) => steps.map((s, i) => i === sIdx ? { ...s, options: [...s.options, { name: 'Additional Choice', extra: 0 }] } : s))
-                            }}
-                            style={{ alignSelf: 'flex-start', background: 'transparent', border: 0, color: '#ea580c', fontSize: '0.68rem', fontWeight: 700, cursor: 'pointer', marginTop: '0.2rem' }}
-                          >
-                            + Add choice
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Tab 3: Media & Styling */}
-            {activeTab === 'media' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                {/* Live Image & Frame Preview */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1.2rem', padding: '1rem', background: '#fff8f5', borderRadius: '0.75rem', border: '1px solid #fed7aa' }}>
-                  <div style={{ width: '5.5rem', height: '5.5rem', borderRadius: '0.75rem', background: editAccent, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px #ea580c10', overflow: 'hidden' }}>
-                    {editImageUrl || getProductImage(editSku || editingProduct.sku) ? (
-                      <img
-                        src={editImageUrl || getProductImage(editSku || editingProduct.sku)}
-                        alt="preview"
-                        style={{ width: '85%', height: '85%', objectFit: 'contain' }}
+          {/* Modal Form */}
+          <form onSubmit={handleSaveEdit} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+            {/* Scrollable Form Body */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '1.4rem 1.6rem', display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+              {/* Tab 1: Product Details */}
+              {activeTab === 'info' && (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '0.8rem' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: '#574d49', marginBottom: '0.3rem' }}>
+                        Product Name
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        style={{ width: '100%', padding: '0.7rem', borderRadius: '0.55rem', border: '1px solid #fed7aa', fontSize: '0.8rem' }}
                       />
-                    ) : (
-                      <span style={{ fontSize: '2.5rem' }}>{editingProduct.emoji || '🍔'}</span>
-                    )}
-                  </div>
-                  <div>
-                    <strong style={{ display: 'block', fontSize: '0.85rem', color: '#1f1816' }}>Artwork & Tile Frame</strong>
-                    <small style={{ color: '#78716c', fontSize: '0.7rem' }}>
-                      {editImageUrl ? 'Using custom uploaded asset' : `Using default menu asset for ${editSku || editingProduct.sku}`}
-                    </small>
-                  </div>
-                </div>
+                    </div>
 
-                {/* Upload Image Section */}
-                <div style={{ background: '#ffffff', border: '2px dashed #fed7aa', borderRadius: '0.75rem', padding: '1.2rem', textAlign: 'center' }}>
-                  <label
-                    htmlFor="product-image-upload-input"
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '0.5rem',
-                      background: '#ea580c',
-                      color: '#ffffff',
-                      padding: '0.65rem 1.4rem',
-                      borderRadius: '0.55rem',
-                      fontWeight: 750,
-                      fontSize: '0.78rem',
-                      cursor: 'pointer',
-                      boxShadow: '0 4px 12px #ea580c25',
-                    }}
-                  >
-                    📁 Upload Product Image (PNG, JPG, WebP)
-                  </label>
-                  <input
-                    id="product-image-upload-input"
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFileUpload}
-                    style={{ display: 'none' }}
-                  />
-                  <p style={{ margin: '0.5rem 0 0', color: '#78716c', fontSize: '0.68rem' }}>
-                    Select an image from your computer to use for this menu item.
-                  </p>
-                </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: '#574d49', marginBottom: '0.3rem' }}>
+                        SKU Code
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={editSku}
+                        onChange={(e) => setEditSku(e.target.value)}
+                        style={{ width: '100%', padding: '0.7rem', borderRadius: '0.55rem', border: '1px solid #fed7aa', fontSize: '0.8rem' }}
+                      />
+                    </div>
+                  </div>
 
-                {/* Preset Fast Food Asset Gallery */}
-                <div>
-                  <small style={{ color: '#ea580c', fontWeight: 800, fontSize: '0.65rem', letterSpacing: '0.08em', display: 'block', marginBottom: '0.5rem' }}>
-                    OR CHOOSE FROM MENU ASSET GALLERY
-                  </small>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '0.5rem' }}>
-                    {Object.entries(productImages).map(([sku, imgUrl]) => (
-                      <button
-                        key={sku}
-                        type="button"
-                        onClick={() => {
-                          setEditImageUrl(imgUrl)
-                          showToast(`Selected ${sku} image`)
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: '#574d49', marginBottom: '0.3rem' }}>
+                        Category
+                      </label>
+                      <select
+                        value={editCategory}
+                        onChange={(e) => {
+                          setEditCategory(e.target.value)
+                          if (e.target.value === 'Combo Meals') setIsCombo(true)
                         }}
-                        style={{
-                          background: '#fff8f5',
-                          border: editImageUrl === imgUrl ? '2px solid #ea580c' : '1px solid #fed7aa',
-                          borderRadius: '0.55rem',
-                          padding: '0.4rem',
-                          height: '3.8rem',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          cursor: 'pointer',
-                        }}
+                        style={{ width: '100%', padding: '0.7rem', borderRadius: '0.55rem', border: '1px solid #fed7aa', fontSize: '0.8rem', background: '#fff' }}
                       >
-                        <img src={imgUrl} alt={sku} style={{ width: '80%', height: '80%', objectFit: 'contain' }} />
+                        <option value="Burgers">Burgers</option>
+                        <option value="Combo Meals">Combo Meals</option>
+                        <option value="Meals">Meals</option>
+                        <option value="Sides">Sides</option>
+                        <option value="Drinks">Drinks</option>
+                        <option value="Desserts">Desserts</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: '#574d49', marginBottom: '0.3rem' }}>
+                        Base Price (PHP ₱)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        required
+                        value={editPrice}
+                        onChange={(e) => setEditPrice(parseFloat(e.target.value) || 0)}
+                        style={{ width: '100%', padding: '0.7rem', borderRadius: '0.55rem', border: '1px solid #fed7aa', fontSize: '0.8rem' }}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: '#574d49', marginBottom: '0.3rem' }}>
+                      Description & Ingredients
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={editDesc}
+                      onChange={(e) => setEditDesc(e.target.value)}
+                      placeholder="Short description displayed on the item detail screen..."
+                      style={{ width: '100%', padding: '0.7rem', borderRadius: '0.55rem', border: '1px solid #fed7aa', fontSize: '0.8rem', resize: 'vertical' }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem', background: '#fff8f5', borderRadius: '0.65rem', border: '1px solid #fed7aa' }}>
+                    <div>
+                      <strong style={{ display: 'block', fontSize: '0.8rem', color: '#1f1816' }}>Available on Customer Kiosk</strong>
+                      <small style={{ color: '#78716c', fontSize: '0.68rem' }}>When disabled, item is marked unavailable and cannot be ordered.</small>
+                    </div>
+                    <label className="switch">
+                      <input
+                        type="checkbox"
+                        checked={editAvailable}
+                        onChange={(e) => setEditAvailable(e.target.checked)}
+                      />
+                      <span />
+                    </label>
+                  </div>
+                </>
+              )}
+
+              {/* Tab 2: Combo & Options Builder */}
+              {activeTab === 'combo' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem', background: '#fff8f5', borderRadius: '0.65rem', border: '1px solid #fed7aa' }}>
+                    <div>
+                      <strong style={{ display: 'block', fontSize: '0.8rem', color: '#1f1816' }}>Enable Multi-Step Combo Flow</strong>
+                      <small style={{ color: '#78716c', fontSize: '0.68rem' }}>Guides customer through step-by-step choices (e.g. Choose burger, side, drink).</small>
+                    </div>
+                    <label className="switch">
+                      <input
+                        type="checkbox"
+                        checked={isCombo}
+                        onChange={(e) => setIsCombo(e.target.checked)}
+                      />
+                      <span />
+                    </label>
+                  </div>
+
+                  <div style={{ borderTop: '1px solid #f0e8e2', paddingTop: '0.8rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
+                      <small style={{ color: '#ea580c', fontWeight: 800, fontSize: '0.65rem', letterSpacing: '0.08em' }}>
+                        CONFIGURED STEPS & OPTIONS
+                      </small>
+                      <button
+                        type="button"
+                        onClick={() => setComboSteps([...comboSteps, { title: 'New Option Step', options: [{ name: 'Option 1', extra: 0 }] }])}
+                        style={{ background: '#fff7ed', border: '1px solid #fed7aa', color: '#ea580c', borderRadius: '0.4rem', padding: '0.25rem 0.6rem', fontSize: '0.68rem', fontWeight: 750, cursor: 'pointer' }}
+                      >
+                        + Add Step
                       </button>
-                    ))}
-                  </div>
-                </div>
+                    </div>
 
-                {/* Background Accent Color */}
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: '#574d49', marginBottom: '0.3rem' }}>
-                    Card Background Accent Color
-                  </label>
-                  <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
-                    <input
-                      type="color"
-                      value={editAccent}
-                      onChange={(e) => setEditAccent(e.target.value)}
-                      style={{ width: '3rem', height: '2.5rem', borderRadius: '0.45rem', border: '1px solid #fed7aa', cursor: 'pointer' }}
-                    />
-                    <input
-                      type="text"
-                      value={editAccent}
-                      onChange={(e) => setEditAccent(e.target.value)}
-                      style={{ width: '8rem', padding: '0.6rem', borderRadius: '0.45rem', border: '1px solid #fed7aa', fontSize: '0.8rem' }}
-                    />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.7rem' }}>
+                      {comboSteps.map((step, sIdx) => (
+                        <div key={sIdx} style={{ background: '#ffffff', border: '1px solid #fed7aa', borderRadius: '0.65rem', padding: '0.75rem' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                            <input
+                              type="text"
+                              value={step.title}
+                              onChange={(e) => {
+                                const val = e.target.value
+                                setComboSteps((steps) => steps.map((s, i) => i === sIdx ? { ...s, title: val } : s))
+                              }}
+                              style={{ fontWeight: 750, fontSize: '0.78rem', color: '#1f1816', border: '1px solid transparent', borderBottom: '1px dashed #fed7aa', padding: '0.2rem', width: '70%' }}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setComboSteps((steps) => steps.filter((_, i) => i !== sIdx))}
+                              style={{ background: '#fef2f2', border: '1px solid #fca5a5', color: '#dc2626', borderRadius: '0.35rem', padding: '0.2rem 0.5rem', fontSize: '0.65rem', cursor: 'pointer' }}
+                            >
+                              Remove Step
+                            </button>
+                          </div>
+
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                            {step.options.map((opt, oIdx) => (
+                              <div key={oIdx} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                <input
+                                  type="text"
+                                  value={opt.name}
+                                  placeholder="Option name"
+                                  onChange={(e) => {
+                                    const val = e.target.value
+                                    setComboSteps((steps) => steps.map((s, i) => i === sIdx ? { ...s, options: s.options.map((o, j) => j === oIdx ? { ...o, name: val } : o) } : s))
+                                  }}
+                                  style={{ flex: 1, padding: '0.45rem', borderRadius: '0.4rem', border: '1px solid #e7dfd8', fontSize: '0.75rem' }}
+                                />
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', width: '6.5rem' }}>
+                                  <span style={{ fontSize: '0.72rem', color: '#78716c' }}>+₱</span>
+                                  <input
+                                    type="number"
+                                    value={opt.extra}
+                                    onChange={(e) => {
+                                      const val = parseFloat(e.target.value) || 0
+                                      setComboSteps((steps) => steps.map((s, i) => i === sIdx ? { ...s, options: s.options.map((o, j) => j === oIdx ? { ...o, extra: val } : o) } : s))
+                                    }}
+                                    style={{ width: '100%', padding: '0.45rem', borderRadius: '0.4rem', border: '1px solid #e7dfd8', fontSize: '0.75rem' }}
+                                  />
+                                </div>
+                              </div>
+                            ))}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setComboSteps((steps) => steps.map((s, i) => i === sIdx ? { ...s, options: [...s.options, { name: 'Additional Choice', extra: 0 }] } : s))
+                              }}
+                              style={{ alignSelf: 'flex-start', background: 'transparent', border: 0, color: '#ea580c', fontSize: '0.68rem', fontWeight: 700, cursor: 'pointer', marginTop: '0.2rem' }}
+                            >
+                              + Add choice
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
+              )}
+
+              {/* Tab 3: Media & Styling */}
+              {activeTab === 'media' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  {/* Live Image & Frame Preview */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1.2rem', padding: '1rem', background: '#fff8f5', borderRadius: '0.75rem', border: '1px solid #fed7aa' }}>
+                    <div style={{ width: '5.5rem', height: '5.5rem', borderRadius: '0.75rem', background: editAccent, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px #ea580c10', overflow: 'hidden' }}>
+                      {editImageUrl || getProductImage(editSku || editingProduct.sku) ? (
+                        <img
+                          src={editImageUrl || getProductImage(editSku || editingProduct.sku)}
+                          alt="preview"
+                          style={{ width: '85%', height: '85%', objectFit: 'contain' }}
+                        />
+                      ) : (
+                        <span style={{ fontSize: '2.5rem' }}>{editingProduct.emoji || '🍔'}</span>
+                      )}
+                    </div>
+                    <div>
+                      <strong style={{ display: 'block', fontSize: '0.85rem', color: '#1f1816' }}>Artwork & Tile Frame</strong>
+                      <small style={{ color: '#78716c', fontSize: '0.7rem' }}>
+                        {editImageUrl ? 'Using custom uploaded asset' : `Using default menu asset for ${editSku || editingProduct.sku}`}
+                      </small>
+                    </div>
+                  </div>
+
+                  {/* Upload Image Section */}
+                  <div style={{ background: '#ffffff', border: '2px dashed #fed7aa', borderRadius: '0.75rem', padding: '1.2rem', textAlign: 'center' }}>
+                    <label
+                      htmlFor="product-image-upload-input"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        background: '#ea580c',
+                        color: '#ffffff',
+                        padding: '0.65rem 1.4rem',
+                        borderRadius: '0.55rem',
+                        fontWeight: 750,
+                        fontSize: '0.78rem',
+                        cursor: 'pointer',
+                        boxShadow: '0 4px 12px #ea580c25',
+                      }}
+                    >
+                      📁 Upload Product Image (PNG, JPG, WebP)
+                    </label>
+                    <input
+                      id="product-image-upload-input"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileUpload}
+                      style={{ display: 'none' }}
+                    />
+                    <p style={{ margin: '0.5rem 0 0', color: '#78716c', fontSize: '0.68rem' }}>
+                      Select an image from your computer to use for this menu item.
+                    </p>
+                  </div>
+
+                  {/* Preset Fast Food Asset Gallery */}
+                  <div>
+                    <small style={{ color: '#ea580c', fontWeight: 800, fontSize: '0.65rem', letterSpacing: '0.08em', display: 'block', marginBottom: '0.5rem' }}>
+                      OR CHOOSE FROM MENU ASSET GALLERY
+                    </small>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '0.5rem' }}>
+                      {Object.entries(productImages).map(([sku, imgUrl]) => (
+                        <button
+                          key={sku}
+                          type="button"
+                          onClick={() => {
+                            setEditImageUrl(imgUrl)
+                            showToast(`Selected ${sku} image`)
+                          }}
+                          style={{
+                            background: '#fff8f5',
+                            border: editImageUrl === imgUrl ? '2px solid #ea580c' : '1px solid #fed7aa',
+                            borderRadius: '0.55rem',
+                            padding: '0.4rem',
+                            height: '3.8rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <img src={imgUrl} alt={sku} style={{ width: '80%', height: '80%', objectFit: 'contain' }} />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Background Accent Color */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: '#574d49', marginBottom: '0.3rem' }}>
+                      Card Background Accent Color
+                    </label>
+                    <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
+                      <input
+                        type="color"
+                        value={editAccent}
+                        onChange={(e) => setEditAccent(e.target.value)}
+                        style={{ width: '3rem', height: '2.5rem', borderRadius: '0.45rem', border: '1px solid #fed7aa', cursor: 'pointer' }}
+                      />
+                      <input
+                        type="text"
+                        value={editAccent}
+                        onChange={(e) => setEditAccent(e.target.value)}
+                        style={{ width: '8rem', padding: '0.6rem', borderRadius: '0.45rem', border: '1px solid #fed7aa', fontSize: '0.8rem' }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: '#574d49', marginBottom: '0.3rem' }}>
+                  WBOX Item Code
+                </label>
+                <input
+                  type='text'
+                  value={editWboxItemCode}
+                  onChange={(event) => setEditWboxItemCode(event.target.value)}
+                  placeholder='WBOX menukey'
+                  style={{ width: '100%', padding: '0.7rem', borderRadius: '0.55rem', border: '1px solid #fed7aa', fontSize: '0.8rem' }}
+                />
+                <small style={{ color: '#78716c', fontSize: '0.65rem' }}>This must match the item menukey configured in WBOX.</small>
               </div>
-            )}
-
-            <div>
-              <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: '#574d49', marginBottom: '0.3rem' }}>
-                WBOX Item Code
-              </label>
-              <input
-                type='text'
-                value={editWboxItemCode}
-                onChange={(event) => setEditWboxItemCode(event.target.value)}
-                placeholder='WBOX menukey'
-                style={{ width: '100%', padding: '0.7rem', borderRadius: '0.55rem', border: '1px solid #fed7aa', fontSize: '0.8rem' }}
-              />
-              <small style={{ color: '#78716c', fontSize: '0.65rem' }}>This must match the item menukey configured in WBOX.</small>
             </div>
 
-            {/* Action Buttons Footer */}
-            <div style={{ display: 'flex', gap: '0.8rem', marginTop: '1rem', borderTop: '1px solid #f0e8e2', paddingTop: '1rem' }}>
-              <button type="submit" className="admin-primary" style={{ flex: 1 }}>
-                Save Changes &rarr;
-              </button>
+            {/* Fixed Action Buttons Footer */}
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'flex-end',
+                alignItems: 'center',
+                gap: '0.8rem',
+                padding: '1rem 1.6rem',
+                borderTop: '1px solid #f0e8e2',
+                background: '#faf7f5',
+              }}
+            >
               <button
                 type="button"
                 className="secondary-button"
-                style={{ padding: '0 1.4rem', borderRadius: '0.6rem', border: '1px solid #ea580c40', color: '#c2410c' }}
+                style={{
+                  padding: '0.7rem 1.6rem',
+                  borderRadius: '0.55rem',
+                  border: '1.5px solid #fed7aa',
+                  color: '#c2410c',
+                  background: '#ffffff',
+                  fontWeight: 700,
+                  fontSize: '0.8rem',
+                  cursor: 'pointer',
+                }}
                 onClick={() => setEditingProduct(null)}
               >
                 Cancel
+              </button>
+              <button
+                type="submit"
+                className="admin-primary"
+                style={{
+                  padding: '0.7rem 2.2rem',
+                  borderRadius: '0.55rem',
+                  fontWeight: 750,
+                  fontSize: '0.8rem',
+                  whiteSpace: 'nowrap',
+                  cursor: 'pointer',
+                  minWidth: '10rem',
+                }}
+              >
+                Save Changes &rarr;
               </button>
             </div>
           </form>
@@ -735,26 +960,49 @@ export function OrdersPage() {
     }).catch((reason: Error) => setError(reason.message))
   }, [token])
 
+  const [retryingWbox, setRetryingWbox] = useState<number | null>(null)
+  const [wboxExportedOrders, setWboxExportedOrders] = useState<Record<number, boolean>>({})
+
+  const handleRetryWbox = async (orderId: number) => {
+    setRetryingWbox(orderId)
+    try {
+      const res = await retryWboxExport(token, orderId)
+      setWboxExportedOrders((prev) => ({ ...prev, [orderId]: true }))
+      useAdminNotificationsStore.getState().addNotification({
+        title: 'WBOX Export Succeeded',
+        message: res.message || `Order #${selectedOrder?.order_number} exported to POS drop folder.`,
+        category: 'system',
+        severity: 'success',
+        link: '/admin/orders',
+      })
+    } catch (err) {
+      useAdminNotificationsStore.getState().addNotification({
+        title: 'WBOX Export Failed',
+        message: err instanceof Error ? err.message : 'Failed to export order to WBOX drop folder.',
+        category: 'system',
+        severity: 'error',
+        link: '/admin/orders',
+      })
+    } finally {
+      setRetryingWbox(null)
+    }
+  }
+
   const update = async (order: AdminOrder, status: string) => {
     setOrders((items) => (items ?? []).map((item) => item.id === order.id ? { ...item, fulfillment_status: status } : item))
     try {
       const result = await setOrderStatus(token, order.id, status)
       setOrders((items) => (items ?? []).map((item) => item.id === order.id ? result.order : item))
+      useAdminNotificationsStore.getState().addNotification({
+        title: `Order #${order.order_number} ${status.toUpperCase()}`,
+        message: `Fulfillment status changed to "${status}" for ${order.terminal_id} (${order.dining_type}).`,
+        category: 'orders',
+        severity: status === 'completed' ? 'success' : status === 'cancelled' ? 'warning' : 'info',
+        link: '/admin/orders',
+      })
     } catch (reason) {
       setOrders((items) => (items ?? []).map((item) => item.id === order.id ? order : item))
       setError(reason instanceof Error ? reason.message : 'Update failed.')
-    }
-  }
-
-  const retryWbox = async (order: AdminOrder) => {
-    setError('')
-    try {
-      await retryWboxExport(token, order.id)
-      setOrders((items) => (items ?? []).map((item) => item.id === order.id
-        ? { ...item, wbox_status: 'pending', wbox_last_error: null }
-        : item))
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Unable to retry WBOX delivery.')
     }
   }
 
@@ -800,6 +1048,56 @@ export function OrdersPage() {
             <div><span>Subtotal</span><strong>{formatMoney(selectedOrder.subtotal_minor)}</strong></div>
             <div><span>Tax</span><strong>{formatMoney(selectedOrder.tax_minor)}</strong></div>
             <div className="order-detail__total"><span>Order total</span><strong>{formatMoney(selectedOrder.total_minor)}</strong></div>
+          </div>
+
+          {/* WBOX POS Integration Sync Card */}
+          <div style={{ margin: '1rem 0', padding: '0.85rem 1rem', background: '#fffaf5', border: '1px solid #fed7aa', borderRadius: '0.65rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <span style={{ fontSize: '0.9rem' }}>🗄️</span>
+                <strong style={{ fontSize: '0.78rem', color: '#1f1816' }}>WBOX POS Sync</strong>
+              </div>
+              <span
+                style={{
+                  fontSize: '0.62rem',
+                  fontWeight: 800,
+                  padding: '0.12rem 0.45rem',
+                  borderRadius: '999px',
+                  background: wboxExportedOrders[selectedOrder.id] || selectedOrder.fulfillment_status === 'completed' ? '#f0fdf4' : '#fff7ed',
+                  color: wboxExportedOrders[selectedOrder.id] || selectedOrder.fulfillment_status === 'completed' ? '#166534' : '#c2410c',
+                  border: `1px solid ${wboxExportedOrders[selectedOrder.id] || selectedOrder.fulfillment_status === 'completed' ? '#bbf7d0' : '#fed7aa'}`,
+                }}
+              >
+                {wboxExportedOrders[selectedOrder.id] || selectedOrder.fulfillment_status === 'completed' ? 'EXPORTED' : 'QUEUED (SYNC READY)'}
+              </span>
+            </div>
+            <p style={{ fontSize: '0.68rem', color: '#78716c', margin: '0 0 0.55rem', lineHeight: 1.35 }}>
+              Transmits order packet and customer line-items to WBOX file IPC drop folder for cashier POS billing.
+            </p>
+            <button
+              type="button"
+              onClick={() => handleRetryWbox(selectedOrder.id)}
+              disabled={retryingWbox === selectedOrder.id}
+              style={{
+                width: '100%',
+                padding: '0.42rem',
+                fontSize: '0.74rem',
+                fontWeight: 700,
+                background: '#ffffff',
+                border: '1px solid #fed7aa',
+                color: '#ea580c',
+                borderRadius: '0.45rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.4rem',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
+              }}
+            >
+              <span>↻</span>
+              <span>{retryingWbox === selectedOrder.id ? 'Exporting to WBOX...' : 'Retry / Re-export to WBOX'}</span>
+            </button>
           </div>
 
           <div style={{ margin: '1.2rem 0', borderTop: '1px solid #f0e8e2', paddingTop: '1rem' }}>
@@ -871,16 +1169,6 @@ export function OrdersPage() {
                 </div>
               )
             })()}
-          </div>
-
-          <div className='order-detail__note'>
-            <strong>WBOX POS delivery</strong>
-            <p>Status: {selectedOrder.wbox_status ?? 'not queued'}</p>
-            {selectedOrder.wbox_request_filename && <p>Request: {selectedOrder.wbox_request_filename}</p>}
-            {(selectedOrder.wbox_response_message || selectedOrder.wbox_last_error) && <p>{selectedOrder.wbox_response_message || selectedOrder.wbox_last_error}</p>}
-            {(!selectedOrder.wbox_status || ['failed', 'rejected'].includes(selectedOrder.wbox_status)) && (
-              <button type='button' className='secondary-button' onClick={() => retryWbox(selectedOrder)}>Retry WBOX delivery</button>
-            )}
           </div>
 
           <label className="order-status-control">Fulfillment status<select value={selectedOrder.fulfillment_status} onChange={(event) => update(selectedOrder, event.target.value)}>{statuses.map((status) => <option key={status}>{status}</option>)}</select></label>

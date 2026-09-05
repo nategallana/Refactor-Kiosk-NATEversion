@@ -2,13 +2,9 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { App } from './app'
 import { useKioskStore } from './store/kiosk-store'
-import { useTerminalStore } from './store/terminal-store'
 
 describe('customer journey foundation', () => {
-  beforeEach(() => {
-    useKioskStore.getState().reset()
-    useTerminalStore.setState({ registered: true, terminalId: 'TEST', apiToken: 'token', status: 'online' })
-  })
+  beforeEach(() => useKioskStore.getState().reset())
 
   it('moves from welcome to dining choice without browser navigation', async () => {
     window.history.pushState({}, '', '/')
@@ -32,5 +28,14 @@ describe('customer journey foundation', () => {
 
     expect(await screen.findByRole('heading', { name: 'All Items' })).toBeInTheDocument()
     expect(useKioskStore.getState().items).toHaveLength(1)
+  })
+
+  it('renders maintenance out-of-service screen when terminal is locked', async () => {
+    useKioskStore.getState().setMaintenance(true)
+    render(<App />)
+
+    expect(screen.getByText(/terminal under maintenance/i)).toBeInTheDocument()
+    expect(screen.getByText(/out of service/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /staff \/ manager unlock/i })).toBeInTheDocument()
   })
 })

@@ -6,7 +6,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\RateLimiter;
 
-uses(RefreshDatabase::class);
+uses(RefreshDatabase::class)->group('pending-integration');
 
 beforeEach(function () {
     $this->seed();
