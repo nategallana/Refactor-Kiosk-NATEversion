@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Web Audio API synthesizer for clean, responsive sound effects
  * without external audio asset dependencies.
  */
@@ -75,7 +75,7 @@ class SoundEffects {
       osc2.start(now)
       osc1.stop(now + 0.22)
       osc2.stop(now + 0.22)
-    } catch {}
+    } catch { /* Web Audio may not be available */ }
   }
 
   /** Celebratory 3-tone arpeggio when payment/ticket succeeds */
@@ -103,7 +103,7 @@ class SoundEffects {
         osc.start(start)
         osc.stop(start + 0.35)
       })
-    } catch {}
+    } catch { /* Web Audio may not be available */ }
   }
 
   /** Attention-grabbing bell chime for Kitchen KDS / Status Board */
@@ -128,7 +128,7 @@ class SoundEffects {
 
       osc.start(now)
       osc.stop(now + 0.5)
-    } catch {}
+    } catch { /* Web Audio may not be available */ }
   }
 }
 

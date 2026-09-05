@@ -20,12 +20,6 @@ export function App() {
   const setMaintenance = useKioskStore((state) => state.setMaintenance)
   const terminalId = useKioskStore((state) => state.terminalId)
 
-  // Dedicated staff displays (accessible directly on tablets & TV monitors)
-  if (typeof window !== 'undefined') {
-    if (window.location.pathname === '/kds') return <KdsScreen />
-    if (window.location.pathname === '/status-board') return <StatusBoardScreen />
-  }
-
   useEffect(() => {
     fetchSettings()
 
@@ -41,6 +35,12 @@ export function App() {
       window.removeEventListener('storage', syncStatus)
     }
   }, [fetchSettings, setMaintenance, terminalId])
+
+  // Dedicated staff displays (accessible directly on tablets & TV monitors)
+  if (typeof window !== 'undefined') {
+    if (window.location.pathname === '/kds') return <KdsScreen />
+    if (window.location.pathname === '/status-board') return <StatusBoardScreen />
+  }
 
   if (isMaintenance) {
     return <MaintenanceScreen />

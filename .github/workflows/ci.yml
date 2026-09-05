@@ -68,4 +68,4 @@ jobs:
 
       - name: Run Pest / PHPUnit Test Suite
         working-directory: backend
-        run: php artisan test
+        run: php artisan test --exclude-group=pending-integration

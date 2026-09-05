@@ -49,7 +49,7 @@ export function StatusBoardScreen() {
         previousReadyIdsRef.current = currentReadyIds
 
         setOrders(fetched)
-      } catch {}
+      } catch { /* ignore fetch errors, will retry */ }
     }
 
     fetchBoard()

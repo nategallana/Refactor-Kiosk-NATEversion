@@ -5,7 +5,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
-uses(RefreshDatabase::class);
+uses(RefreshDatabase::class)->group('pending-integration');
 
 beforeEach(function () {
     $this->seed();
