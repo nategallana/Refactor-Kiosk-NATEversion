@@ -9,7 +9,9 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('system_settings', function (Blueprint $table): void {
-            $table->string('welcome_background_image', 500)->nullable()->after('receipt_footer');
+            if (! Schema::hasColumn('system_settings', 'welcome_background_image')) {
+                $table->string('welcome_background_image', 500)->nullable()->after('receipt_footer');
+            }
         });
     }
 
