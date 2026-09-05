@@ -31,7 +31,7 @@ class AdminOrderController extends Controller
             }
             DB::table('orders')->where('id', $order)->update($updates);
             DB::table('audit_logs')->insert([
-                'actor_id' => $request->user()->id, 'action' => 'order.status_changed',
+                'actor_id' => $request->user()?->id, 'action' => 'order.status_changed',
                 'entity_type' => 'order', 'entity_id' => (string) $order,
                 'before' => json_encode(['fulfillment_status' => $before->fulfillment_status, 'payment_status' => $before->payment_status]),
                 'after' => json_encode(['fulfillment_status' => $data['status'], 'payment_status' => $updates['payment_status'] ?? $before->payment_status]),

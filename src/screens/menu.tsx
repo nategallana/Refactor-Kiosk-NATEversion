@@ -7,6 +7,7 @@ import { formatPhTime } from '../domain/datetime'
 import { MenuShell } from '../components/shell'
 import { AdBanner } from '../components/ad-banner'
 import { useKioskStore } from '../store/kiosk-store'
+import { sounds } from '../domain/sound'
 
 const categoryIconsByName: Record<string, { img?: string; emoji: string }> = {
   'Main': { img: '/menu/burger-bundle.png', emoji: '🍱' },
@@ -28,7 +29,10 @@ function ProductArtwork({ product }: { product: Product }) {
 
 function ProductCard({ product }: { product: Product }) {
   const navigate = useNavigate()
-  const openProduct = () => navigate('/products/' + product.id)
+  const openProduct = () => {
+    sounds.playTap()
+    navigate('/products/' + product.id)
+  }
   const className = 'kiosk-card' + (product.available ? '' : ' kiosk-card--unavailable')
 
   return (
@@ -235,7 +239,10 @@ export function MenuScreen() {
             <div className="kiosk-sidebar__nav">
               <button
                 className={`kiosk-sidebar__tab ${category === 'all' ? 'active' : ''}`}
-                onClick={() => setParams({ category: 'all' })}
+                onClick={() => {
+                  sounds.playTap()
+                  setParams({ category: 'all' })
+                }}
               >
                 <div className="kiosk-sidebar__thumb">
                   <svg
@@ -264,7 +271,10 @@ export function MenuScreen() {
                   <button
                     key={item.id}
                     className={`kiosk-sidebar__tab ${isActive ? 'active' : ''}`}
-                    onClick={() => setParams({ category: item.id })}
+                    onClick={() => {
+                      sounds.playTap()
+                      setParams({ category: item.id })
+                    }}
                   >
                     <div className="kiosk-sidebar__thumb">
                       {meta?.img ? (

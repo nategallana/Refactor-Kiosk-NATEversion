@@ -233,12 +233,13 @@ export type WboxSyncResult = {
   updated?: number
   created?: number
   total?: number
+  synced_count?: number
   message: string
 }
 
 export async function syncWboxCatalog(
   token: string,
-  items?: Array<{ menukey: string; name: string; price: number; category?: string; available?: boolean }>
+  payload?: { items?: unknown[] } | Array<{ menukey: string; name: string; price: number; category?: string; available?: boolean }>
 ): Promise<WboxSyncResult> {
   const schema = z.object({
     success: z.boolean(),
@@ -248,11 +249,13 @@ export async function syncWboxCatalog(
     updated: z.number().optional(),
     created: z.number().optional(),
     total: z.number().optional(),
+    synced_count: z.number().optional(),
     message: z.string(),
   })
+  const body = Array.isArray(payload) ? { items: payload } : payload
   return apiRequest('/admin/catalog/wbox-sync', schema, token, {
     method: 'POST',
-    body: items ? JSON.stringify({ items }) : undefined,
+    body: body ? JSON.stringify(body) : undefined,
   })
 }
 

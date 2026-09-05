@@ -5,6 +5,7 @@ import { Check } from '../components/icons'
 import { formatMoney, lineTotal } from '../domain/order'
 import { formatPhTime } from '../domain/datetime'
 import { useKioskStore } from '../store/kiosk-store'
+import { sounds } from '../domain/sound'
 
 export function TicketScreen() {
   const navigate = useNavigate()
@@ -16,6 +17,7 @@ export function TicketScreen() {
 
   useEffect(() => {
     if (!receipt) return
+    sounds.playOrderSuccess()
     const timer = setInterval(() => {
       setSecondsLeft((prev) => {
         if (prev <= 1) {

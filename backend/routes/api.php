@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('v1')->group(function (): void {
     Route::get('/settings', [AdminSettingsController::class, 'show']);
     Route::get('/catalog', [AdminCatalogController::class, 'index']);
+    Route::get('/orders', [AdminOrderController::class, 'index']);
+    Route::patch('/orders/{order}/status', [AdminOrderController::class, 'updateStatus']);
     Route::post('/orders', [OrderController::class, 'store']);
     Route::post('/admin/auth/login', [AdminAuthController::class, 'login'])->middleware('throttle:10,1');
     Route::middleware('auth:sanctum')->prefix('admin')->group(function (): void {
@@ -19,6 +21,9 @@ Route::prefix('v1')->group(function (): void {
         Route::get('/dashboard', AdminDashboardController::class);
         Route::get('/catalog', [AdminCatalogController::class, 'index']);
         Route::patch('/products/{product}/availability', [AdminCatalogController::class, 'availability']);
+        Route::patch('/products/{product}/wbox-mapping', [AdminCatalogController::class, 'wboxMapping']);
+        Route::put('/products/{product}/wbox-mapping', [AdminCatalogController::class, 'wboxMapping']);
+        Route::post('/catalog/wbox-sync', [AdminCatalogController::class, 'wboxSync']);
         Route::get('/orders', [AdminOrderController::class, 'index']);
         Route::patch('/orders/{order}/status', [AdminOrderController::class, 'updateStatus']);
         Route::get('/settings', [AdminSettingsController::class, 'show']);
@@ -26,7 +31,5 @@ Route::prefix('v1')->group(function (): void {
         Route::post('/settings/upload-background', [AdminSettingsController::class, 'uploadBackground']);
         Route::get('/settings/wbox/status', [AdminSettingsController::class, 'wboxStatus']);
         Route::post('/orders/{order}/wbox-retry', [AdminOrderController::class, 'wboxRetry']);
-        Route::put('/products/{product}/wbox-mapping', [AdminCatalogController::class, 'wboxMapping']);
-        Route::post('/catalog/wbox-sync', [AdminCatalogController::class, 'wboxSync']);
     });
 });

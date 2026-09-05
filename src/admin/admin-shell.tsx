@@ -58,6 +58,13 @@ export function AdminShell({ title, eyebrow, children, action }: { title: string
         {links.map(({ label, href, icon }) => <NavLink key={href} to={href} end={href === '/admin'}>
           <NavIcon name={icon} /><span>{label}</span>
         </NavLink>)}
+        <div style={{ margin: '0.75rem 0', borderTop: '1px solid #f1f5f9' }} />
+        <a href="/kds" target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.6rem 0.8rem', color: '#64748b', fontSize: '0.875rem', textDecoration: 'none', borderRadius: '0.5rem', fontWeight: 600 }}>
+          <span>👨‍🍳</span><span>Kitchen KDS ↗</span>
+        </a>
+        <a href="/status-board" target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.6rem 0.8rem', color: '#64748b', fontSize: '0.875rem', textDecoration: 'none', borderRadius: '0.5rem', fontWeight: 600 }}>
+          <span>📺</span><span>Status Board ↗</span>
+        </a>
       </nav>
       <button className="admin-logout" onClick={leave}>
         <span aria-hidden="true">&larr;</span><strong>Logout</strong>
