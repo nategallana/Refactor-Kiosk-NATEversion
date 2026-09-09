@@ -6,12 +6,14 @@ RUN apk add --no-cache \
     git \
     libzip-dev \
     sqlite-dev \
+    postgresql-dev \
     oniguruma-dev \
     libxml2-dev \
     linux-headers \
     && docker-php-ext-install \
     pdo \
     pdo_sqlite \
+    pdo_pgsql \
     mbstring \
     xml \
     bcmath \
@@ -36,6 +38,8 @@ RUN mkdir -p database storage/framework/sessions storage/framework/views storage
 RUN composer install --no-dev --optimize-autoloader --no-interaction
 
 ENV PORT=8000
+ENV DB_CONNECTION=sqlite
+ENV DB_DATABASE=/app/database/database.sqlite
 EXPOSE 8000
 
 CMD sh -c "\
