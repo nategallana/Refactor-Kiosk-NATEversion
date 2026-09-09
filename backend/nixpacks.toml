@@ -1,18 +1,26 @@
 providers = ["php", "node"]
 
+[variables]
+NIXPACKS_PHP_VERSION = "8.4"
+
 [phases.setup]
 nixPkgs = [
-    "php83",
-    "php83Packages.composer",
-    "php83Extensions.pdo_sqlite",
-    "php83Extensions.sqlite3",
-    "php83Extensions.mbstring",
-    "php83Extensions.xml",
-    "php83Extensions.curl",
-    "php83Extensions.tokenizer",
-    "php83Extensions.bcmath",
-    "php83Extensions.ctype",
-    "php83Extensions.fileinfo"
+    "php84",
+    "php84Packages.composer",
+    "php84Extensions.pdo_sqlite",
+    "php84Extensions.sqlite3",
+    "php84Extensions.mbstring",
+    "php84Extensions.xml",
+    "php84Extensions.curl",
+    "php84Extensions.tokenizer",
+    "php84Extensions.bcmath",
+    "php84Extensions.ctype",
+    "php84Extensions.fileinfo"
+]
+
+[phases.install]
+cmds = [
+    "composer install --no-dev --optimize-autoloader --ignore-platform-req=php+"
 ]
 
 [phases.build]
@@ -21,7 +29,6 @@ cmds = [
     "mkdir -p storage/logs",
     "mkdir -p database",
     "touch database/database.sqlite",
-    "composer install --no-dev --optimize-autoloader",
     "cp -n .env.example .env || true",
     "php artisan config:clear",
     "php artisan migrate --force",
