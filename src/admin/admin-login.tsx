@@ -9,8 +9,8 @@ export function AdminLogin() {
   const [params] = useSearchParams()
   const token = useAdminStore((state) => state.token)
   const signIn = useAdminStore((state) => state.signIn)
-  const [email, setEmail] = useState('admin@kiosk.local')
-  const [password, setPassword] = useState('Admin123!')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState(() => params.get('expired') ? 'Your session expired. Please sign in again.' : '')
   const [busy, setBusy] = useState(false)
@@ -59,7 +59,6 @@ export function AdminLogin() {
         <label>Password<div className="admin-password-field"><input type={showPassword ? 'text' : 'password'} value={password} onChange={(event) => setPassword(event.target.value)} required autoComplete="current-password" /><button type="button" aria-label={showPassword ? 'Hide password' : 'Show password'} aria-pressed={showPassword} onClick={() => setShowPassword((visible) => !visible)}>{showPassword ? 'Hide' : 'Show'}</button></div></label>
         {error && <div className="admin-error" role="alert">{error}</div>}
         <button className="admin-primary" disabled={busy || cooldown > 0}>{busy ? 'Signing in...' : cooldown > 0 ? 'Try again in ' + cooldown + 's' : 'Sign in'} <b>&rarr;</b></button>
-        <small>Development credentials are prefilled. Change them before deployment.</small>
       </form>
     </section>
   </main>
