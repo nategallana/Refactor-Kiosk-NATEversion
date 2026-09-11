@@ -1,4 +1,4 @@
-import { catalogSchema, type Catalog, type CatalogRepository } from '../domain/catalog'
+import { catalogSchema, type Catalog, type CatalogRepository, type Product } from '../domain/catalog'
 
 const size = {
   id: 'size', name: 'Size', required: true, minSelections: 1, maxSelections: 1,
@@ -89,4 +89,56 @@ export class FixtureCatalogRepository implements CatalogRepository {
   }
 }
 
-export const catalogRepository = new FixtureCatalogRepository()
+export class HybridCatalogRepository implements CatalogRepository {
+  private fixtureRepo = new FixtureCatalogRepository()
+  private apiRepo: CatalogRepository | null = null
+
+  private async getApiRepo(): Promise<CatalogRepository | null> {
+    if (typeof window === 'undefined') return null
+    if (!this.apiRepo) {
+      try {
+        const { ApiCatalogRepository } = await import('./api-catalog')
+        this.apiRepo = new ApiCatalogRepository()
+      } catch {
+        this.apiRepo = null
+      }
+    }
+    return this.apiRepo
+  }
+
+  async getCatalog(signal?: AbortSignal): Promise<Catalog> {
+    const api = await this.getApiRepo()
+    if (api) {
+      try {
+        const catalog = await api.getCatalog(signal)
+        if (catalog && catalog.products && catalog.products.length > 0) {
+          return catalog
+        }
+      } catch (err) {
+        // Fall back gracefully to offline fixtures if backend is unreachable or not yet configured
+        if (err instanceof DOMException && err.name === 'AbortError') {
+          throw err
+        }
+      }
+    }
+    return this.fixtureRepo.getCatalog(signal)
+  }
+
+  async getProduct(id: string, signal?: AbortSignal): Promise<Product | undefined> {
+    const api = await this.getApiRepo()
+    if (api) {
+      try {
+        const product = await api.getProduct(id, signal)
+        if (product) return product
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') {
+          throw err
+        }
+      }
+    }
+    return this.fixtureRepo.getProduct(id, signal)
+  }
+}
+
+export const catalogRepository = new HybridCatalogRepository()
+

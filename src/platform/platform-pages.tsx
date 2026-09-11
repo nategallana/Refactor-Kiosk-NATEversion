@@ -19,7 +19,7 @@ import {
   type StoreSales,
   type AuditLogItem,
 } from './platform-api'
-import { getWboxStatus } from '../admin/admin-api'
+import { getWboxStatus, importMenuTxt } from '../admin/admin-api'
 import { formatMoney } from '../domain/order'
 
 interface WboxConnectionStatus {
@@ -462,18 +462,73 @@ export function TerminalsPage() {
 export function WboxPage() {
   const token = useAdminStore((s) => s.token)
   const [wbox, setWbox] = useState<WboxConnectionStatus | null>(null)
+  const [importing, setImporting] = useState(false)
+  const [importResult, setImportResult] = useState<string | null>(null)
 
   useEffect(() => {
     if (!token) return
     getWboxStatus(token).then((r) => setWbox(r.connection)).catch(() => null)
   }, [token])
 
+  const onImportMenu = async () => {
+    if (!token) return
+    setImporting(true)
+    setImportResult(null)
+    try {
+      const res = await importMenuTxt(token)
+      setImportResult(res.message)
+    } catch (err) {
+      setImportResult(err instanceof Error ? err.message : 'Import failed')
+    } finally {
+      setImporting(false)
+    }
+  }
+
   return (
     <div style={{ background: '#fff', padding: '1.5rem', borderRadius: '0.85rem', border: '1px solid var(--admin-line)' }}>
-      <h3 style={{ margin: '0 0 0.3rem 0', fontSize: '1.1rem', fontWeight: 750 }}>WBOX POS Bridge Connector</h3>
-      <p style={{ color: 'var(--admin-muted)', fontSize: '0.82rem', marginBottom: '1.5rem' }}>
-        Verifies the active file handshake directory between the kiosk service and the local Windows POS terminal.
-      </p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.2rem' }}>
+        <div>
+          <h3 style={{ margin: '0 0 0.3rem 0', fontSize: '1.1rem', fontWeight: 750 }}>WBOX POS Bridge Connector</h3>
+          <p style={{ color: 'var(--admin-muted)', fontSize: '0.82rem', margin: 0 }}>
+            Verifies the active file handshake directory between the kiosk service and the local Windows POS terminal.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onImportMenu}
+          disabled={importing}
+          style={{
+            background: '#ea580c',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '0.5rem',
+            padding: '0.55rem 1rem',
+            fontSize: '0.82rem',
+            fontWeight: 750,
+            cursor: importing ? 'not-allowed' : 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.4rem',
+            opacity: importing ? 0.7 : 1,
+          }}
+        >
+          {importing ? '⏳ Importing Menu...' : '📥 Import Menu.txt (Desktop)'}
+        </button>
+      </div>
+
+      {importResult && (
+        <div style={{
+          marginBottom: '1.2rem',
+          padding: '0.75rem 1rem',
+          borderRadius: '0.5rem',
+          fontSize: '0.82rem',
+          background: '#f0fdf4',
+          color: '#166534',
+          border: '1px solid #bbf7d0',
+        }}>
+          {importResult}
+        </div>
+      )}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1.25rem' }}>
         <div style={{ padding: '1.2rem', background: 'var(--admin-bg)', borderRadius: '0.75rem', border: '1px solid var(--admin-line)' }}>

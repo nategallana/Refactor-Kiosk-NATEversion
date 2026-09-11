@@ -3,12 +3,38 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Services\WboxMenuImporter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class AdminCatalogController extends Controller
 {
+    public function __construct(private readonly ?WboxMenuImporter $menuImporter = null) {}
+
+    public function importFromMenuTxt(Request $request): JsonResponse
+    {
+        $terminal = $request->attributes->get('_terminal');
+        $storeId = (int) ($terminal?->store_id ?? $request->attributes->get('store_id') ?? 1);
+        $path = $request->input('path');
+
+        $importer = $this->menuImporter ?? app(WboxMenuImporter::class);
+
+        try {
+            $result = $importer->import($path, null, $storeId);
+            return response()->json([
+                'success' => true,
+                'message' => "Successfully imported {$result['imported_products']} new products and updated {$result['updated_products']} products ({$result['categories_existing']} categories total) from {$result['file_path']}.",
+                'data' => $result,
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to import Menu.txt: ' . $e->getMessage(),
+            ], 422);
+        }
+    }
+
     public function index(): JsonResponse
     {
         return response()->json([
@@ -115,7 +141,27 @@ class AdminCatalogController extends Controller
             }
         }
 
-        // 3. Fallback: Auto-ingest from local WBOX POS XML dumps (C:\wBoxCloud\CloudAgent\BACKUP\)
+        // 3. Fallback: Auto-ingest from Menu.txt if present
+        $importer = $this->menuImporter ?? app(WboxMenuImporter::class);
+        $resolvedMenu = $importer->resolveMenuPath($request->input('menu_path'));
+        if (empty($items) && $resolvedMenu) {
+            try {
+                $menuResult = $importer->import($resolvedMenu, null, $storeId);
+                return response()->json([
+                    'success' => true,
+                    'inquiry_sent' => $inquirySent,
+                    'source_file' => basename($menuResult['file_path']),
+                    'synced_count' => $menuResult['imported_products'] + $menuResult['updated_products'],
+                    'updated' => $menuResult['updated_products'],
+                    'created' => $menuResult['imported_products'],
+                    'message' => "Successfully imported from {$menuResult['file_path']} ({$menuResult['imported_products']} created, {$menuResult['updated_products']} updated).",
+                ]);
+            } catch (\Throwable) {
+                // If Menu.txt import fails, continue to next fallback
+            }
+        }
+
+        // 4. Fallback: Auto-ingest from local WBOX POS XML dumps (C:\wBoxCloud\CloudAgent\BACKUP\)
         if (empty($items)) {
             $cloudBackupPattern = 'C:\\wBoxCloud\\CloudAgent\\BACKUP\\*\\*.xml';
             $backupFiles = glob($cloudBackupPattern);
@@ -140,7 +186,7 @@ class AdminCatalogController extends Controller
             }
         }
 
-        // 4. Process upsert into products
+        // 5. Process upsert into products
         if (! empty($items) && is_array($items)) {
             $updated = 0;
             $created = 0;

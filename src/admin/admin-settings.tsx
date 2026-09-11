@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent, type ChangeEvent } from 'react'
-import { getSettings, getWboxStatus, updateSettings, type AdminSettings, type AdminSettingsUpdate } from './admin-api'
+import { getSettings, getWboxStatus, updateSettings, importMenuTxt, type AdminSettings, type AdminSettingsUpdate } from './admin-api'
 import { AdminShell } from './admin-shell'
 import { useAdminStore } from './admin-store'
 import { Toast, type ToastType } from '../components/toast'
@@ -61,6 +61,7 @@ export function SettingsPage() {
   const [checkingWbox, setCheckingWbox] = useState(false)
   const [wboxStatus, setWboxStatus] = useState('')
   const [wboxReady, setWboxReady] = useState<boolean | null>(null)
+  const [importingMenu, setImportingMenu] = useState(false)
   const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null)
 
   const showToast = (message: string, type: ToastType = 'success') => {
@@ -183,6 +184,23 @@ export function SettingsPage() {
       showToast(msg, 'error')
     } finally {
       setCheckingWbox(false)
+    }
+  }
+
+  const handleImportMenu = async () => {
+    setImportingMenu(true)
+    try {
+      const res = await importMenuTxt(token)
+      if (res.success) {
+        showToast(res.message, 'success')
+      } else {
+        showToast(res.message, 'error')
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to import Menu.txt'
+      showToast(msg, 'error')
+    } finally {
+      setImportingMenu(false)
     }
   }
 
@@ -1235,6 +1253,28 @@ export function SettingsPage() {
                     style={{ whiteSpace: 'nowrap' }}
                   >
                     {checkingWbox ? 'Checking...' : 'Test saved connection'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleImportMenu}
+                    disabled={importingMenu}
+                    style={{
+                      background: '#ea580c',
+                      color: '#ffffff',
+                      border: 'none',
+                      borderRadius: '0.45rem',
+                      padding: '0.5rem 0.9rem',
+                      fontSize: '0.74rem',
+                      fontWeight: 750,
+                      cursor: importingMenu ? 'not-allowed' : 'pointer',
+                      whiteSpace: 'nowrap',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.4rem',
+                      opacity: importingMenu ? 0.7 : 1,
+                    }}
+                  >
+                    {importingMenu ? '⏳ Importing Menu...' : '📥 Import Menu.txt'}
                   </button>
                 </div>
               </div>

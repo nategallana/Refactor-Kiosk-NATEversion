@@ -59,21 +59,35 @@ function mapCatalog(raw: { categories: RawCategory[]; products: RawProduct[] }) 
       displayOrder: c.display_order,
       active: Boolean(c.active),
     })),
-    products: raw.products.map((p) => ({
-      id: String(p.id),
-      sku: p.sku,
-      categoryId: String(p.category_id),
-      name: p.name,
-      description: p.description ?? '',
-      basePrice: p.price_minor,
-      active: Boolean(p.active),
-      available: Boolean(p.available),
-      accent: p.accent,
-      emoji: p.emoji ?? '',
-      imageUrl: p.image_url ?? undefined,
-      combo: Boolean(p.combo),
-      optionGroups: p.option_groups ?? [],
-    })),
+    products: raw.products.map((p) => {
+      let optionGroups: RawOptionGroup[] = []
+      if (Array.isArray(p.option_groups)) {
+        optionGroups = p.option_groups
+      } else if (typeof (p as unknown as Record<string, unknown>).option_groups_json === 'string') {
+        try {
+          const rawJson = (p as unknown as Record<string, string>).option_groups_json
+          optionGroups = rawJson ? JSON.parse(rawJson) : []
+        } catch {
+          optionGroups = []
+        }
+      }
+
+      return {
+        id: String(p.id),
+        sku: p.sku,
+        categoryId: String(p.category_id),
+        name: p.name,
+        description: p.description ?? '',
+        basePrice: p.price_minor,
+        active: Boolean(p.active),
+        available: Boolean(p.available),
+        accent: p.accent || '#fff4ed',
+        emoji: p.emoji ?? '',
+        imageUrl: p.image_url ?? undefined,
+        combo: Boolean(p.combo),
+        optionGroups,
+      }
+    }),
   })
 }
 

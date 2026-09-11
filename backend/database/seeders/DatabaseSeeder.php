@@ -128,5 +128,22 @@ class DatabaseSeeder extends Seeder
                 ])
             );
         }
+
+        // Default terminal for development
+        DB::table('terminals')->updateOrInsert(
+            ['id' => 'KIOSK-01'],
+            [
+                'name' => 'Main Customer Terminal',
+                'location' => 'Lobby Entrance',
+                'wbox_kiosk_number' => 'K01',
+                'api_token' => hash('sha256', 'dev-kiosk-token-01'),
+                'status' => 'online',
+                'service_mode' => null,
+                'screen_profile' => '1080x1920-portrait',
+                'last_heartbeat_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]
+        );
     }
 }

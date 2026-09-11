@@ -259,3 +259,33 @@ export async function syncWboxCatalog(
   })
 }
 
+export async function importMenuTxt(token: string, path?: string): Promise<{
+  success: boolean
+  message: string
+  data?: {
+    imported_products: number
+    updated_products: number
+    categories_created: number
+    categories_existing: number
+    file_path: string
+  }
+}> {
+  const schema = z.object({
+    success: z.boolean(),
+    message: z.string(),
+    data: z.object({
+      imported_products: z.number(),
+      updated_products: z.number(),
+      categories_created: z.number(),
+      categories_existing: z.number(),
+      file_path: z.string(),
+    }).optional(),
+  })
+
+  return apiRequest('/admin/catalog/import-menu-txt', schema, token, {
+    method: 'POST',
+    body: JSON.stringify({ path }),
+  })
+}
+
+

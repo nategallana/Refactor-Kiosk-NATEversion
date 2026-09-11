@@ -9,7 +9,7 @@ use App\Http\Controllers\Api\OrderController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function (): void {
-    Route::get('/settings', [AdminSettingsController::class, 'show']);
+    Route::get('/settings', [AdminSettingsController::class, 'publicShow']);
     Route::get('/catalog', [AdminCatalogController::class, 'index']);
     Route::get('/orders', [AdminOrderController::class, 'index']);
     Route::patch('/orders/{order}/status', [AdminOrderController::class, 'updateStatus']);
@@ -24,6 +24,7 @@ Route::prefix('v1')->group(function (): void {
         Route::patch('/products/{product}/wbox-mapping', [AdminCatalogController::class, 'wboxMapping']);
         Route::put('/products/{product}/wbox-mapping', [AdminCatalogController::class, 'wboxMapping']);
         Route::post('/catalog/wbox-sync', [AdminCatalogController::class, 'wboxSync']);
+        Route::post('/catalog/import-menu-txt', [AdminCatalogController::class, 'importFromMenuTxt']);
         Route::get('/orders', [AdminOrderController::class, 'index']);
         Route::patch('/orders/{order}/status', [AdminOrderController::class, 'updateStatus']);
         Route::get('/settings', [AdminSettingsController::class, 'show']);

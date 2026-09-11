@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
@@ -21,8 +22,18 @@ class AdminSettingsController extends Controller
     {
         $terminal = $request->attributes->get('_terminal');
         $storeId = (int) ($terminal?->store_id ?? $request->attributes->get('store_id') ?? 1);
+        $settings = DB::table('system_settings')->where('id', $storeId)->first() ?? DB::table('system_settings')->where('id', 1)->first();
 
-        return response()->json(['settings' => DB::table('system_settings')->where('id', $storeId)->first() ?? DB::table('system_settings')->where('id', 1)->first()]);
+        if ($settings !== null) {
+            unset(
+                $settings->wbox_request_path,
+                $settings->wbox_response_path,
+                $settings->wbox_auth_token_encrypted,
+                $settings->wbox_auth_token
+            );
+        }
+
+        return response()->json(['settings' => $settings]);
     }
 
     public function update(Request $request): JsonResponse
@@ -62,6 +73,12 @@ class AdminSettingsController extends Controller
         }
 
         $before = $this->settings();
+        $newToken = trim((string) ($data['wbox_auth_token'] ?? ''));
+        unset($data['wbox_auth_token']);
+        if ($newToken !== '') {
+            $data['wbox_auth_token_encrypted'] = Crypt::encryptString($newToken);
+        }
+
         DB::table('system_settings')->updateOrInsert(
             ['id' => 1],
             [...$data, 'updated_at' => now(), 'created_at' => $before?->created_at ?? now()],
@@ -82,11 +99,18 @@ class AdminSettingsController extends Controller
     public function uploadBackground(Request $request): JsonResponse
     {
         $request->validate([
-            'image' => ['required', 'file', 'image', 'max:10240'],
+            'image' => ['required', 'image', 'max:5120'], // max 5MB
         ]);
 
         $path = $request->file('image')->store('backgrounds', 'public');
-        $url = '/storage/' . $path;
+        $url = asset('storage/' . $path);
+
+        $storeId = (int) ($request->attributes->get('store_id') ?? 1);
+        DB::table('system_settings')->where('id', $storeId)->update([
+            'welcome_background_image' => $url,
+            'welcome_background_url' => $url,
+            'updated_at' => now(),
+        ]);
 
         return response()->json(['url' => $url]);
     }
@@ -103,7 +127,7 @@ class AdminSettingsController extends Controller
         $responseExists = ! empty($responsePath) && is_dir($responsePath);
         $responseReadable = $responseExists && is_readable($responsePath);
 
-        $credentialsConfigured = ! empty($settings?->wbox_auth_token) || (bool) ($settings?->wbox_enabled ?? false);
+        $credentialsConfigured = (bool) ($settings?->wbox_auth_token_configured ?? false);
 
         return response()->json([
             'connection' => [
@@ -124,6 +148,14 @@ class AdminSettingsController extends Controller
 
     private function settings(int $storeId = 1): ?object
     {
-        return DB::table('system_settings')->where('id', $storeId)->first() ?? DB::table('system_settings')->where('id', 1)->first();
+        $settings = DB::table('system_settings')->where('id', $storeId)->first() ?? DB::table('system_settings')->where('id', 1)->first();
+        if ($settings === null) {
+            return null;
+        }
+
+        $settings->wbox_auth_token_configured = filled($settings->wbox_auth_token_encrypted ?? null);
+        unset($settings->wbox_auth_token_encrypted, $settings->wbox_auth_token);
+
+        return $settings;
     }
 }

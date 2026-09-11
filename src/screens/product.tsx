@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import type { Product } from '../domain/catalog'
+import type { OptionGroup, Product } from '../domain/catalog'
 import { catalogRepository } from '../data/catalog'
 import { formatMoney, selectedUnitPrice, type CartSelection } from '../domain/order'
 import { ArrowLeft } from '../components/icons'
@@ -36,8 +36,8 @@ export function ProductScreen() {
       setProduct(item)
       setComboStep(0)
       setSelected(item.combo
-        ? Object.fromEntries(item.optionGroups.map((group) => [group.id, []]))
-        : Object.fromEntries(item.optionGroups.map((group) => [group.id, group.required && group.values[0] ? [group.values[0].id] : []])))
+        ? Object.fromEntries(item.optionGroups.map((group: OptionGroup) => [group.id, []]))
+        : Object.fromEntries(item.optionGroups.map((group: OptionGroup) => [group.id, group.required && group.values[0] ? [group.values[0].id] : []])))
     }).catch(() => undefined)
     return () => controller.abort()
   }, [id])

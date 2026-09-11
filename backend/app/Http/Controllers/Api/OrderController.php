@@ -91,6 +91,7 @@ class OrderController extends Controller
                     'order_id' => $orderId,
                     'product_id' => $item['productId'],
                     'sku' => $item['sku'],
+                    'wbox_item_code' => $item['wboxItemCode'],
                     'name' => $item['name'],
                     'quantity' => $item['quantity'],
                     'unit_price_minor' => $item['unitPrice'],
@@ -100,6 +101,17 @@ class OrderController extends Controller
                     'created_at' => $now,
                     'updated_at' => $now,
                 ], $canonicalItems));
+
+                if ((bool) $settings->wbox_enabled) {
+                    DB::table('wbox_exports')->insert([
+                        'order_id' => $orderId,
+                        'status' => 'pending',
+                        'attempt_count' => 0,
+                        'available_at' => $now,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ]);
+                }
 
                 return [DB::table('orders')->where('id', $orderId)->first(), $canonicalItems, false];
             });
@@ -216,6 +228,7 @@ class OrderController extends Controller
             $canonicalItems[] = [
                 'productId' => (int) $product->id,
                 'sku' => $product->sku,
+                'wboxItemCode' => $product->wbox_item_code,
                 'name' => $product->name,
                 'quantity' => $quantity,
                 'unitPrice' => $unitPriceMinor,
