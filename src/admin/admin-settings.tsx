@@ -4,6 +4,7 @@ import {
   getWboxStatus,
   updateSettings,
   importMenuTxt,
+  uploadMenuTxtFile,
   regenerateWboxAgentToken,
   type AdminSettings,
   type AdminSettingsUpdate,
@@ -276,6 +277,26 @@ export function SettingsPage() {
       showToast(msg, 'error')
     } finally {
       setImportingMenu(false)
+    }
+  }
+
+  const handleUploadMenuFile = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+    setImportingMenu(true)
+    try {
+      const res = await uploadMenuTxtFile(token, file)
+      if (res.success) {
+        showToast(res.message, 'success')
+      } else {
+        showToast(res.message, 'error')
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to upload and import Menu.txt'
+      showToast(msg, 'error')
+    } finally {
+      setImportingMenu(false)
+      event.target.value = ''
     }
   }
 
@@ -1357,9 +1378,39 @@ export function SettingsPage() {
                         gap: '0.4rem',
                         opacity: importingMenu ? 0.7 : 1,
                       }}
+                      title="Auto-detect and import Menu.txt from server storage or default paths"
                     >
-                      {importingMenu ? '⏳ Importing Menu...' : '📥 Import Menu.txt'}
+                      {importingMenu ? '⏳ Importing Menu...' : '📥 Auto-Import Menu.txt'}
                     </button>
+                    <label
+                      htmlFor="menu-txt-file-input"
+                      style={{
+                        background: '#ffffff',
+                        color: '#c2410c',
+                        border: '1.5px solid #fed7aa',
+                        borderRadius: '0.45rem',
+                        padding: '0.48rem 0.9rem',
+                        fontSize: '0.74rem',
+                        fontWeight: 750,
+                        cursor: importingMenu ? 'not-allowed' : 'pointer',
+                        whiteSpace: 'nowrap',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.4rem',
+                        opacity: importingMenu ? 0.7 : 1,
+                      }}
+                      title="Upload any Menu.txt from your computer to sync POS catalog"
+                    >
+                      {importingMenu ? '⏳ Uploading...' : '📂 Upload Menu.txt'}
+                      <input
+                        id="menu-txt-file-input"
+                        type="file"
+                        accept=".txt,.csv"
+                        disabled={importingMenu}
+                        style={{ display: 'none' }}
+                        onChange={handleUploadMenuFile}
+                      />
+                    </label>
                   </div>
                 </div>
 

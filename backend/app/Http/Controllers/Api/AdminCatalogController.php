@@ -16,12 +16,27 @@ class AdminCatalogController extends Controller
     {
         $terminal = $request->attributes->get('_terminal');
         $storeId = (int) ($terminal?->store_id ?? $request->attributes->get('store_id') ?? 1);
-        $path = $request->input('path');
 
         $importer = $this->menuImporter ?? app(WboxMenuImporter::class);
 
         try {
-            $result = $importer->import($path, null, $storeId);
+            if ($request->hasFile('menu_file')) {
+                $file = $request->file('menu_file');
+                $tempPath = $file->getRealPath();
+                $result = $importer->import($tempPath, null, $storeId);
+            } elseif ($request->filled('content')) {
+                $tempPath = tempnam(sys_get_temp_dir(), 'menu_');
+                file_put_contents($tempPath, $request->input('content'));
+                try {
+                    $result = $importer->import($tempPath, null, $storeId);
+                } finally {
+                    @unlink($tempPath);
+                }
+            } else {
+                $path = $request->input('path');
+                $result = $importer->import($path, null, $storeId);
+            }
+
             return response()->json([
                 'success' => true,
                 'message' => "Successfully imported {$result['imported_products']} new products and updated {$result['updated_products']} products ({$result['categories_existing']} categories total) from {$result['file_path']}.",

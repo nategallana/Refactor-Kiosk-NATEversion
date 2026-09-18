@@ -85,6 +85,37 @@ export class RateLimitError extends Error {
   }
 }
 
+export async function uploadMenuTxtFile(token: string, file: File): Promise<{
+  success: boolean
+  message: string
+  data?: {
+    imported_products: number
+    updated_products: number
+    categories_created: number
+    categories_existing: number
+    file_path: string
+  }
+}> {
+  const formData = new FormData()
+  formData.append('menu_file', file)
+
+  const res = await fetch(`${apiBase}/admin/catalog/import-menu-txt`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/json',
+    },
+    body: formData,
+  })
+
+  const json = await res.json()
+  if (!res.ok) {
+    throw new Error(json.message || 'Failed to upload and import Menu.txt')
+  }
+
+  return json
+}
+
 async function apiRequest<T>(path: string, schema: z.ZodType<T>, token?: string | null, init?: RequestInit): Promise<T> {
   const response = await fetch(`${apiBase}${path}`, {
     ...init,

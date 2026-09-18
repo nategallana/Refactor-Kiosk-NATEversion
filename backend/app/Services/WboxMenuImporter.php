@@ -185,8 +185,9 @@ class WboxMenuImporter
 
         $candidates = [
             'C:\\Users\\MIS-01\\Desktop\\Menu.txt',
-            base_path('../Menu.txt'),
             base_path('Menu.txt'),
+            base_path('../Menu.txt'),
+            resource_path('data/Menu.txt'),
             'C:\\Restrnt\\Data\\Menu.txt',
             'C:\\Restrnt\\3rdParty\\Request\\Menu.txt',
             'C:\\Restrnt\\3rdParty\\Response\\Menu.txt',
@@ -209,8 +210,9 @@ class WboxMenuImporter
     {
         // 1. Try pre-parsed JSON dictionary
         $jsonCandidates = [
-            base_path('../scripts/parsed-categories.json'),
+            resource_path('data/parsed-categories.json'),
             base_path('scripts/parsed-categories.json'),
+            base_path('../scripts/parsed-categories.json'),
             base_path('parsed-categories.json'),
         ];
 
