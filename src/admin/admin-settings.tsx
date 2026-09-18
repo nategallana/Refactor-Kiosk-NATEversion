@@ -1,5 +1,14 @@
 import { useEffect, useState, type FormEvent, type ChangeEvent } from 'react'
-import { getSettings, getWboxStatus, updateSettings, importMenuTxt, type AdminSettings, type AdminSettingsUpdate } from './admin-api'
+import {
+  getSettings,
+  getWboxStatus,
+  updateSettings,
+  importMenuTxt,
+  regenerateWboxAgentToken,
+  type AdminSettings,
+  type AdminSettingsUpdate,
+  type WboxConnectionStatus,
+} from './admin-api'
 import { AdminShell } from './admin-shell'
 import { useAdminStore } from './admin-store'
 import { Toast, type ToastType } from '../components/toast'
@@ -61,12 +70,8 @@ export function SettingsPage() {
   const [checkingWbox, setCheckingWbox] = useState(false)
   const [wboxStatus, setWboxStatus] = useState('')
   const [wboxReady, setWboxReady] = useState<boolean | null>(null)
-  const [wboxConnection, setWboxConnection] = useState<{
-    request_path: { path?: string | null; exists: boolean; writable: boolean }
-    response_path: { path?: string | null; exists: boolean; readable: boolean }
-    credentials_configured: boolean
-    server_os?: string
-  } | null>(null)
+  const [wboxConnection, setWboxConnection] = useState<WboxConnectionStatus | null>(null)
+  const [regeneratingToken, setRegeneratingToken] = useState(false)
   const [importingMenu, setImportingMenu] = useState(false)
   const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null)
 
@@ -175,26 +180,44 @@ export function SettingsPage() {
     try {
       const { connection } = await getWboxStatus(token)
       setWboxConnection(connection)
+
+      const isCloud = connection.is_cloud ?? connection.server_os === 'Linux'
       const requestReady = connection.request_path.exists && connection.request_path.writable
       const responseReady = connection.response_path.exists && connection.response_path.readable
-      const foldersReady = requestReady && responseReady
-      const ready = foldersReady && connection.credentials_configured
-      setWboxReady(foldersReady)
+      const localFoldersReady = requestReady && responseReady
+      const agentConnected = connection.agent?.is_connected ?? false
+      const agentFoldersReady = agentConnected && Boolean(connection.agent?.request_ok) && Boolean(connection.agent?.response_ok)
 
+      let ready = false
       let msg = ''
-      if (ready) {
-        msg = 'WBOX folders and credentials are ready.'
-      } else if (foldersReady && !connection.credentials_configured) {
-        msg = 'WBOX folders verified and ready. (Auth token is optional or not saved yet)'
-      } else if (!requestReady && !responseReady) {
-        msg = 'WBOX request and response folders are not accessible.'
-      } else if (!requestReady) {
-        msg = 'WBOX request folder is not accessible or not writable.'
+
+      if (isCloud) {
+        if (agentFoldersReady) {
+          ready = true
+          msg = `In-Store POS Agent connected (${connection.agent?.hostname || 'POS PC'}). WBOX folders verified!`
+        } else if (agentConnected) {
+          ready = false
+          msg = 'In-Store POS Agent connected, but local folders are inaccessible on the POS PC.'
+        } else {
+          ready = false
+          msg = 'In-Store POS Agent is offline. Run start-agent.bat on the store POS computer.'
+        }
       } else {
-        msg = 'WBOX response folder is not accessible or not readable.'
+        ready = localFoldersReady
+        if (ready) {
+          msg = 'WBOX folders and credentials verified and ready.'
+        } else if (!requestReady && !responseReady) {
+          msg = 'WBOX request and response folders are not accessible.'
+        } else if (!requestReady) {
+          msg = 'WBOX request folder is not accessible or not writable.'
+        } else {
+          msg = 'WBOX response folder is not accessible or not readable.'
+        }
       }
+
+      setWboxReady(ready)
       setWboxStatus(msg)
-      showToast(msg, foldersReady ? 'success' : 'error')
+      showToast(msg, ready ? 'success' : 'error')
     } catch (reason) {
       setWboxReady(false)
       setWboxConnection(null)
@@ -203,6 +226,44 @@ export function SettingsPage() {
       showToast(msg, 'error')
     } finally {
       setCheckingWbox(false)
+    }
+  }
+
+  const handleRegenerateAgentToken = async () => {
+    if (!window.confirm('Are you sure you want to regenerate the Store Agent Token? You will need to update config.json on the store POS machine.')) {
+      return
+    }
+    setRegeneratingToken(true)
+    try {
+      const { token: newToken } = await regenerateWboxAgentToken(token)
+      setWboxConnection((prev) =>
+        prev
+          ? {
+              ...prev,
+              agent: prev.agent
+                ? { ...prev.agent, token: newToken }
+                : {
+                    token: newToken,
+                    is_connected: false,
+                    request_ok: false,
+                    response_ok: false,
+                  },
+            }
+          : prev
+      )
+      showToast('New WBOX Agent Token generated!', 'success')
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to regenerate token', 'error')
+    } finally {
+      setRegeneratingToken(false)
+    }
+  }
+
+  const handleCopyAgentToken = () => {
+    const agentToken = wboxConnection?.agent?.token
+    if (agentToken) {
+      navigator.clipboard.writeText(agentToken)
+      showToast('Agent token copied to clipboard!', 'success')
     }
   }
 
@@ -1306,111 +1367,220 @@ export function SettingsPage() {
                 </div>
 
                 {wboxConnection && (
-                  <div
-                    style={{
-                      display: 'flex',
-                      flexWrap: 'wrap',
-                      gap: '0.5rem',
-                      paddingTop: '0.5rem',
-                      borderTop: '1px dashed #fed7aa',
-                      fontSize: '0.72rem',
-                    }}
-                  >
-                    <span
-                      style={{
-                        padding: '0.25rem 0.6rem',
-                        borderRadius: '0.35rem',
-                        fontWeight: 600,
-                        background:
-                          wboxConnection.request_path.exists && wboxConnection.request_path.writable
-                            ? '#f0fdf4'
-                            : '#fef2f2',
-                        color:
-                          wboxConnection.request_path.exists && wboxConnection.request_path.writable
-                            ? '#166534'
-                            : '#dc2626',
-                        border: `1px solid ${
-                          wboxConnection.request_path.exists && wboxConnection.request_path.writable
-                            ? '#bbf7d0'
-                            : '#fecaca'
-                        }`,
-                      }}
-                    >
-                      {wboxConnection.request_path.exists && wboxConnection.request_path.writable
-                        ? '✓ Request Folder: Accessible & Writable'
-                        : '✕ Request Folder: Inaccessible or Not Writable'}
-                    </span>
-                    <span
-                      style={{
-                        padding: '0.25rem 0.6rem',
-                        borderRadius: '0.35rem',
-                        fontWeight: 600,
-                        background:
-                          wboxConnection.response_path.exists && wboxConnection.response_path.readable
-                            ? '#f0fdf4'
-                            : '#fef2f2',
-                        color:
-                          wboxConnection.response_path.exists && wboxConnection.response_path.readable
-                            ? '#166534'
-                            : '#dc2626',
-                        border: `1px solid ${
-                          wboxConnection.response_path.exists && wboxConnection.response_path.readable
-                            ? '#bbf7d0'
-                            : '#fecaca'
-                        }`,
-                      }}
-                    >
-                      {wboxConnection.response_path.exists && wboxConnection.response_path.readable
-                        ? '✓ Response Folder: Accessible & Readable'
-                        : '✕ Response Folder: Inaccessible or Not Readable'}
-                    </span>
-                    <span
-                      style={{
-                        padding: '0.25rem 0.6rem',
-                        borderRadius: '0.35rem',
-                        fontWeight: 600,
-                        background: wboxConnection.credentials_configured ? '#f0fdf4' : '#fffbeb',
-                        color: wboxConnection.credentials_configured ? '#166534' : '#b45309',
-                        border: `1px solid ${
-                          wboxConnection.credentials_configured ? '#bbf7d0' : '#fde68a'
-                        }`,
-                      }}
-                    >
-                      {wboxConnection.credentials_configured
-                        ? '✓ Auth Token: Saved'
-                        : 'ℹ Auth Token: Not saved (optional for folder sync)'}
-                    </span>
-                  </div>
-                )}
+                  <>
+                    {/* Cloud In-Store Agent Card */}
+                    {wboxConnection.is_cloud || wboxConnection.server_os === 'Linux' ? (
+                      <div
+                        style={{
+                          marginTop: '0.4rem',
+                          padding: '0.9rem 1.1rem',
+                          borderRadius: '0.65rem',
+                          background: wboxConnection.agent?.is_connected ? '#f0fdf4' : '#fff8f5',
+                          border: `1px solid ${wboxConnection.agent?.is_connected ? '#bbf7d0' : '#fed7aa'}`,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '0.75rem',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.6rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                            <span style={{ fontSize: '1.25rem' }}>
+                              {wboxConnection.agent?.is_connected ? '🟢' : '🟠'}
+                            </span>
+                            <div>
+                              <strong style={{ fontSize: '0.82rem', color: '#1f1816', display: 'block' }}>
+                                In-Store POS Sync Agent ({wboxConnection.agent?.is_connected ? 'Connected' : 'Waiting for POS Connection'})
+                              </strong>
+                              <small style={{ color: '#78716c', fontSize: '0.7rem' }}>
+                                {wboxConnection.agent?.is_connected
+                                  ? `Connected to ${wboxConnection.agent.hostname || 'In-Store POS PC'} · Last Heartbeat: ${new Date(wboxConnection.agent.last_heartbeat_at || '').toLocaleTimeString()}`
+                                  : 'Run start-agent.bat on the store Windows POS computer to bridge C:\\Restrnt\\3rdParty'}
+                              </small>
+                            </div>
+                          </div>
 
-                {wboxConnection &&
-                  (!wboxConnection.request_path.exists || !wboxConnection.response_path.exists) &&
-                  (wboxConnection.server_os === 'Linux' ||
-                    /^[a-zA-Z]:[\\/]/.test(wboxConnection.request_path.path || '') ||
-                    /^[a-zA-Z]:[\\/]/.test(wboxConnection.response_path.path || '')) && (
-                    <div
-                      style={{
-                        padding: '0.65rem 0.85rem',
-                        borderRadius: '0.45rem',
-                        background: '#eff6ff',
-                        border: '1px solid #bfdbfe',
-                        color: '#1e40af',
-                        fontSize: '0.72rem',
-                        lineHeight: 1.5,
-                      }}
-                    >
-                      <strong style={{ display: 'block', marginBottom: '0.2rem' }}>
-                        ℹ️ Cloud Host Notice: Backend is running on {wboxConnection.server_os || 'a cloud server'}
-                      </strong>
-                      <span>
-                        Windows paths like <code>C:\Restrnt\...</code> exist on your physical restaurant POS computer, not on the cloud server (Railway).
-                        <br />
-                        • <strong>In-Store POS:</strong> Run the backend locally on the POS machine where WBOX is installed (<code>php artisan serve</code>).
-                        <br />
-                        • <strong>Cloud Testing on Railway:</strong> Use server paths like <code>/tmp/wbox/request</code> and <code>/tmp/wbox/response</code>.
-                      </span>
-                    </div>
-                  )}
+                          {wboxConnection.agent?.token && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                              <button
+                                type="button"
+                                onClick={handleCopyAgentToken}
+                                style={{
+                                  padding: '0.35rem 0.75rem',
+                                  fontSize: '0.7rem',
+                                  fontWeight: 650,
+                                  borderRadius: '0.4rem',
+                                  border: '1px solid #d1d5db',
+                                  background: '#ffffff',
+                                  color: '#374151',
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '0.3rem',
+                                }}
+                              >
+                                📋 Copy Agent Token
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleRegenerateAgentToken}
+                                disabled={regeneratingToken}
+                                style={{
+                                  padding: '0.35rem 0.75rem',
+                                  fontSize: '0.7rem',
+                                  fontWeight: 650,
+                                  borderRadius: '0.4rem',
+                                  border: '1px solid #d1d5db',
+                                  background: '#ffffff',
+                                  color: '#374151',
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                {regeneratingToken ? 'Generating...' : '🔄 Reset Token'}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', fontSize: '0.72rem' }}>
+                          <span
+                            style={{
+                              padding: '0.25rem 0.6rem',
+                              borderRadius: '0.35rem',
+                              fontWeight: 600,
+                              background: wboxConnection.agent?.is_connected ? '#dcfce7' : '#fee2e2',
+                              color: wboxConnection.agent?.is_connected ? '#166534' : '#991b1b',
+                              border: `1px solid ${wboxConnection.agent?.is_connected ? '#86efac' : '#fca5a5'}`,
+                            }}
+                          >
+                            {wboxConnection.agent?.is_connected ? '✓ In-Store Agent Online' : '✕ Agent Offline'}
+                          </span>
+                          <span
+                            style={{
+                              padding: '0.25rem 0.6rem',
+                              borderRadius: '0.35rem',
+                              fontWeight: 600,
+                              background: wboxConnection.agent?.request_ok ? '#dcfce7' : '#f3f4f6',
+                              color: wboxConnection.agent?.request_ok ? '#166534' : '#6b7280',
+                              border: `1px solid ${wboxConnection.agent?.request_ok ? '#86efac' : '#e5e7eb'}`,
+                            }}
+                          >
+                            {wboxConnection.agent?.request_ok ? '✓ Local Request Folder (Writable)' : '○ Request Folder (Pending Agent)'}
+                          </span>
+                          <span
+                            style={{
+                              padding: '0.25rem 0.6rem',
+                              borderRadius: '0.35rem',
+                              fontWeight: 600,
+                              background: wboxConnection.agent?.response_ok ? '#dcfce7' : '#f3f4f6',
+                              color: wboxConnection.agent?.response_ok ? '#166534' : '#6b7280',
+                              border: `1px solid ${wboxConnection.agent?.response_ok ? '#86efac' : '#e5e7eb'}`,
+                            }}
+                          >
+                            {wboxConnection.agent?.response_ok ? '✓ Local Response Folder (Readable)' : '○ Response Folder (Pending Agent)'}
+                          </span>
+                        </div>
+
+                        {!wboxConnection.agent?.is_connected && (
+                          <div
+                            style={{
+                              background: '#ffffff',
+                              padding: '0.65rem 0.85rem',
+                              borderRadius: '0.45rem',
+                              border: '1px solid #fed7aa',
+                              fontSize: '0.72rem',
+                              color: '#44403c',
+                              lineHeight: 1.5,
+                            }}
+                          >
+                            <strong>How to Connect In-Store Windows POS:</strong>
+                            <ol style={{ margin: '0.3rem 0 0 1.2rem', padding: 0 }}>
+                              <li>On the in-store Windows POS PC, open <code>scripts/wbox-agent/config.json</code>.</li>
+                              <li>Set <code>agent_token</code> to: <code style={{ color: '#ea580c', fontWeight: 700 }}>{wboxConnection.agent?.token || '(generate above)'}</code></li>
+                              <li>Double-click <code>scripts/wbox-agent/start-agent.bat</code> to start syncing with WBOX.</li>
+                            </ol>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      /* Local direct connection pills */
+                      <div
+                        style={{
+                          display: 'flex',
+                          flexWrap: 'wrap',
+                          gap: '0.5rem',
+                          paddingTop: '0.5rem',
+                          borderTop: '1px dashed #fed7aa',
+                          fontSize: '0.72rem',
+                        }}
+                      >
+                        <span
+                          style={{
+                            padding: '0.25rem 0.6rem',
+                            borderRadius: '0.35rem',
+                            fontWeight: 600,
+                            background:
+                              wboxConnection.request_path.exists && wboxConnection.request_path.writable
+                                ? '#f0fdf4'
+                                : '#fef2f2',
+                            color:
+                              wboxConnection.request_path.exists && wboxConnection.request_path.writable
+                                ? '#166534'
+                                : '#dc2626',
+                            border: `1px solid ${
+                              wboxConnection.request_path.exists && wboxConnection.request_path.writable
+                                ? '#bbf7d0'
+                                : '#fecaca'
+                            }`,
+                          }}
+                        >
+                          {wboxConnection.request_path.exists && wboxConnection.request_path.writable
+                            ? '✓ Request Folder: Accessible & Writable'
+                            : '✕ Request Folder: Inaccessible or Not Writable'}
+                        </span>
+                        <span
+                          style={{
+                            padding: '0.25rem 0.6rem',
+                            borderRadius: '0.35rem',
+                            fontWeight: 600,
+                            background:
+                              wboxConnection.response_path.exists && wboxConnection.response_path.readable
+                                ? '#f0fdf4'
+                                : '#fef2f2',
+                            color:
+                              wboxConnection.response_path.exists && wboxConnection.response_path.readable
+                                ? '#166534'
+                                : '#dc2626',
+                            border: `1px solid ${
+                              wboxConnection.response_path.exists && wboxConnection.response_path.readable
+                                ? '#bbf7d0'
+                                : '#fecaca'
+                            }`,
+                          }}
+                        >
+                          {wboxConnection.response_path.exists && wboxConnection.response_path.readable
+                            ? '✓ Response Folder: Accessible & Readable'
+                            : '✕ Response Folder: Inaccessible or Not Readable'}
+                        </span>
+                        <span
+                          style={{
+                            padding: '0.25rem 0.6rem',
+                            borderRadius: '0.35rem',
+                            fontWeight: 600,
+                            background: wboxConnection.credentials_configured ? '#f0fdf4' : '#fffbeb',
+                            color: wboxConnection.credentials_configured ? '#166534' : '#b45309',
+                            border: `1px solid ${
+                              wboxConnection.credentials_configured ? '#bbf7d0' : '#fde68a'
+                            }`,
+                          }}
+                        >
+                          {wboxConnection.credentials_configured
+                            ? '✓ Auth Token: Saved'
+                            : 'ℹ Auth Token: Not saved (optional for folder sync)'}
+                        </span>
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
             </div>
           </section>

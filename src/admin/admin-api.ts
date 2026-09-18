@@ -197,13 +197,27 @@ export async function createActivationCode(token: string): Promise<{ activation_
   return apiRequest('/admin/terminals/activation-codes', z.object({ activation_code: z.string(), expires_at: z.string() }), token, { method: 'POST' })
 }
 
+export type WboxAgentStatus = {
+  token?: string | null
+  is_connected: boolean
+  last_heartbeat_at?: string | null
+  hostname?: string | null
+  request_ok: boolean
+  response_ok: boolean
+  version?: string | null
+}
+
+export type WboxConnectionStatus = {
+  request_path: { path?: string | null; exists: boolean; writable: boolean }
+  response_path: { path?: string | null; exists: boolean; readable: boolean }
+  credentials_configured: boolean
+  server_os?: string
+  is_cloud?: boolean
+  agent?: WboxAgentStatus | null
+}
+
 export async function getWboxStatus(token: string): Promise<{
-  connection: {
-    request_path: { path?: string | null; exists: boolean; writable: boolean }
-    response_path: { path?: string | null; exists: boolean; readable: boolean }
-    credentials_configured: boolean
-    server_os?: string
-  }
+  connection: WboxConnectionStatus
 }> {
   return apiRequest(
     '/admin/settings/wbox/status',
@@ -213,10 +227,29 @@ export async function getWboxStatus(token: string): Promise<{
         response_path: z.object({ path: z.string().nullable().optional(), exists: z.boolean(), readable: z.boolean() }),
         credentials_configured: z.boolean(),
         server_os: z.string().optional(),
+        is_cloud: z.boolean().optional(),
+        agent: z
+          .object({
+            token: z.string().nullable().optional(),
+            is_connected: z.boolean(),
+            last_heartbeat_at: z.string().nullable().optional(),
+            hostname: z.string().nullable().optional(),
+            request_ok: z.boolean(),
+            response_ok: z.boolean(),
+            version: z.string().nullable().optional(),
+          })
+          .nullable()
+          .optional(),
       }),
     }),
     token
   )
+}
+
+export async function regenerateWboxAgentToken(token: string): Promise<{ token: string }> {
+  return apiRequest('/admin/settings/wbox/regenerate-agent-token', z.object({ token: z.string() }), token, {
+    method: 'POST',
+  })
 }
 
 export async function retryWboxExport(token: string, orderId: number): Promise<{ success: boolean; message: string }> {

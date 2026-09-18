@@ -1,0 +1,8 @@
+{
+  "server_url": "https://refactor-kiosk-nateversion-production.up.railway.app",
+  "agent_token": "wbx_agent_Zn6Ydhkn5TTWjbQphQWev33QLEu7dO5J",
+  "request_path": "C:\\Restrnt\\3rdParty\\Request",
+  "response_path": "C:\\Restrnt\\3rdParty\\Response",
+  "poll_interval_seconds": 2,
+  "heartbeat_interval_seconds": 15
+}

@@ -7,6 +7,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class AdminSettingsController extends Controller
@@ -121,6 +122,16 @@ class AdminSettingsController extends Controller
         $requestPath = $settings?->wbox_request_path;
         $responsePath = $settings?->wbox_response_path;
 
+        $isCloud = PHP_OS_FAMILY === 'Linux';
+
+        // Auto-create relative/linux directories on server
+        if (is_string($requestPath) && ! is_dir($requestPath) && ! preg_match('/^[a-zA-Z]:[\\\\\\/]/', $requestPath)) {
+            @mkdir($requestPath, 0777, true);
+        }
+        if (is_string($responsePath) && ! is_dir($responsePath) && ! preg_match('/^[a-zA-Z]:[\\\\\\/]/', $responsePath)) {
+            @mkdir($responsePath, 0777, true);
+        }
+
         $requestExists = ! empty($requestPath) && is_dir($requestPath);
         $requestWritable = $requestExists && is_writable($requestPath);
 
@@ -128,6 +139,17 @@ class AdminSettingsController extends Controller
         $responseReadable = $responseExists && is_readable($responsePath);
 
         $credentialsConfigured = (bool) ($settings?->wbox_auth_token_configured ?? false);
+
+        // Agent status
+        $lastHeartbeat = $settings?->wbox_agent_last_heartbeat_at ?? null;
+        $agentConnected = $lastHeartbeat !== null && now()->diffInSeconds($lastHeartbeat) < 60;
+
+        // Ensure an agent token exists for this store
+        $agentToken = $settings?->wbox_agent_token ?? null;
+        if (empty($agentToken) && $settings !== null) {
+            $agentToken = 'wbx_agent_' . Str::random(32);
+            DB::table('system_settings')->where('id', $settings->id)->update(['wbox_agent_token' => $agentToken]);
+        }
 
         return response()->json([
             'connection' => [
@@ -142,8 +164,32 @@ class AdminSettingsController extends Controller
                     'readable' => (bool) $responseReadable,
                 ],
                 'credentials_configured' => (bool) $credentialsConfigured,
+                'server_os' => PHP_OS_FAMILY,
+                'is_cloud' => $isCloud,
+                'agent' => [
+                    'token' => $agentToken,
+                    'is_connected' => $agentConnected,
+                    'last_heartbeat_at' => $lastHeartbeat,
+                    'hostname' => $settings?->wbox_agent_hostname ?? null,
+                    'request_ok' => (bool) ($settings?->wbox_agent_request_ok ?? false),
+                    'response_ok' => (bool) ($settings?->wbox_agent_response_ok ?? false),
+                    'version' => $settings?->wbox_agent_version ?? null,
+                ],
             ],
         ]);
+    }
+
+    public function regenerateAgentToken(Request $request): JsonResponse
+    {
+        $storeId = (int) ($request->attributes->get('store_id') ?? 1);
+        $newToken = 'wbx_agent_' . Str::random(32);
+
+        DB::table('system_settings')->where('id', $storeId)->update([
+            'wbox_agent_token' => $newToken,
+            'updated_at' => now(),
+        ]);
+
+        return response()->json(['token' => $newToken]);
     }
 
     private function settings(int $storeId = 1): ?object
