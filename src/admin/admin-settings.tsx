@@ -61,6 +61,11 @@ export function SettingsPage() {
   const [checkingWbox, setCheckingWbox] = useState(false)
   const [wboxStatus, setWboxStatus] = useState('')
   const [wboxReady, setWboxReady] = useState<boolean | null>(null)
+  const [wboxConnection, setWboxConnection] = useState<{
+    request_path: { path?: string | null; exists: boolean; writable: boolean }
+    response_path: { path?: string | null; exists: boolean; readable: boolean }
+    credentials_configured: boolean
+  } | null>(null)
   const [importingMenu, setImportingMenu] = useState(false)
   const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null)
 
@@ -168,17 +173,30 @@ export function SettingsPage() {
     setWboxStatus('')
     try {
       const { connection } = await getWboxStatus(token)
+      setWboxConnection(connection)
       const requestReady = connection.request_path.exists && connection.request_path.writable
       const responseReady = connection.response_path.exists && connection.response_path.readable
-      const ready = requestReady && responseReady && connection.credentials_configured
-      setWboxReady(ready)
-      const msg = ready
-        ? 'WBOX folders and credentials are ready.'
-        : 'WBOX is not ready. Save valid folders and credentials, then test again.'
+      const foldersReady = requestReady && responseReady
+      const ready = foldersReady && connection.credentials_configured
+      setWboxReady(foldersReady)
+
+      let msg = ''
+      if (ready) {
+        msg = 'WBOX folders and credentials are ready.'
+      } else if (foldersReady && !connection.credentials_configured) {
+        msg = 'WBOX folders verified and ready. (Auth token is optional or not saved yet)'
+      } else if (!requestReady && !responseReady) {
+        msg = 'WBOX request and response folders are not accessible.'
+      } else if (!requestReady) {
+        msg = 'WBOX request folder is not accessible or not writable.'
+      } else {
+        msg = 'WBOX response folder is not accessible or not readable.'
+      }
       setWboxStatus(msg)
-      showToast(msg, ready ? 'success' : 'error')
+      showToast(msg, foldersReady ? 'success' : 'error')
     } catch (reason) {
       setWboxReady(false)
+      setWboxConnection(null)
       const msg = reason instanceof Error ? reason.message : 'Unable to test WBOX settings.'
       setWboxStatus(msg)
       showToast(msg, 'error')
@@ -1214,69 +1232,155 @@ export function SettingsPage() {
                   borderRadius: '0.75rem',
                   padding: '1rem 1.2rem',
                   display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: '1rem',
-                  flexWrap: 'wrap',
+                  flexDirection: 'column',
+                  gap: '0.75rem',
                 }}
               >
-                <div>
-                  <strong style={{ fontSize: '0.8rem', color: '#1f1816', display: 'block' }}>
-                    Connection Diagnostics
-                  </strong>
-                  <small style={{ color: '#78716c', fontSize: '0.68rem' }}>
-                    Validate folder read/write permissions and token credentials.
-                  </small>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-                  {wboxStatus && (
-                    <span
-                      style={{
-                        padding: '0.35rem 0.75rem',
-                        borderRadius: '0.45rem',
-                        fontSize: '0.72rem',
-                        fontWeight: 700,
-                        background: wboxReady ? '#f0fdf4' : '#fef2f2',
-                        color: wboxReady ? '#166534' : '#dc2626',
-                        border: `1px solid ${wboxReady ? '#bbf7d0' : '#fecaca'}`,
-                      }}
-                      role="status"
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '1rem',
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <div>
+                    <strong style={{ fontSize: '0.8rem', color: '#1f1816', display: 'block' }}>
+                      Connection Diagnostics
+                    </strong>
+                    <small style={{ color: '#78716c', fontSize: '0.68rem' }}>
+                      Validate folder read/write permissions and token credentials.
+                    </small>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', flexWrap: 'wrap' }}>
+                    {wboxStatus && (
+                      <span
+                        style={{
+                          padding: '0.35rem 0.75rem',
+                          borderRadius: '0.45rem',
+                          fontSize: '0.72rem',
+                          fontWeight: 700,
+                          background: wboxReady ? '#f0fdf4' : '#fef2f2',
+                          color: wboxReady ? '#166534' : '#dc2626',
+                          border: `1px solid ${wboxReady ? '#bbf7d0' : '#fecaca'}`,
+                        }}
+                        role="status"
+                      >
+                        {wboxStatus}
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={checkWbox}
+                      disabled={checkingWbox}
+                      style={{ whiteSpace: 'nowrap' }}
                     >
-                      {wboxStatus}
-                    </span>
-                  )}
-                  <button
-                    type="button"
-                    className="secondary-button"
-                    onClick={checkWbox}
-                    disabled={checkingWbox}
-                    style={{ whiteSpace: 'nowrap' }}
-                  >
-                    {checkingWbox ? 'Checking...' : 'Test saved connection'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleImportMenu}
-                    disabled={importingMenu}
+                      {checkingWbox ? 'Checking...' : 'Test saved connection'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleImportMenu}
+                      disabled={importingMenu}
+                      style={{
+                        background: '#ea580c',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: '0.45rem',
+                        padding: '0.5rem 0.9rem',
+                        fontSize: '0.74rem',
+                        fontWeight: 750,
+                        cursor: importingMenu ? 'not-allowed' : 'pointer',
+                        whiteSpace: 'nowrap',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.4rem',
+                        opacity: importingMenu ? 0.7 : 1,
+                      }}
+                    >
+                      {importingMenu ? '⏳ Importing Menu...' : '📥 Import Menu.txt'}
+                    </button>
+                  </div>
+                </div>
+
+                {wboxConnection && (
+                  <div
                     style={{
-                      background: '#ea580c',
-                      color: '#ffffff',
-                      border: 'none',
-                      borderRadius: '0.45rem',
-                      padding: '0.5rem 0.9rem',
-                      fontSize: '0.74rem',
-                      fontWeight: 750,
-                      cursor: importingMenu ? 'not-allowed' : 'pointer',
-                      whiteSpace: 'nowrap',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '0.4rem',
-                      opacity: importingMenu ? 0.7 : 1,
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      gap: '0.5rem',
+                      paddingTop: '0.5rem',
+                      borderTop: '1px dashed #fed7aa',
+                      fontSize: '0.72rem',
                     }}
                   >
-                    {importingMenu ? '⏳ Importing Menu...' : '📥 Import Menu.txt'}
-                  </button>
-                </div>
+                    <span
+                      style={{
+                        padding: '0.25rem 0.6rem',
+                        borderRadius: '0.35rem',
+                        fontWeight: 600,
+                        background:
+                          wboxConnection.request_path.exists && wboxConnection.request_path.writable
+                            ? '#f0fdf4'
+                            : '#fef2f2',
+                        color:
+                          wboxConnection.request_path.exists && wboxConnection.request_path.writable
+                            ? '#166534'
+                            : '#dc2626',
+                        border: `1px solid ${
+                          wboxConnection.request_path.exists && wboxConnection.request_path.writable
+                            ? '#bbf7d0'
+                            : '#fecaca'
+                        }`,
+                      }}
+                    >
+                      {wboxConnection.request_path.exists && wboxConnection.request_path.writable
+                        ? '✓ Request Folder: Accessible & Writable'
+                        : '✕ Request Folder: Inaccessible or Not Writable'}
+                    </span>
+                    <span
+                      style={{
+                        padding: '0.25rem 0.6rem',
+                        borderRadius: '0.35rem',
+                        fontWeight: 600,
+                        background:
+                          wboxConnection.response_path.exists && wboxConnection.response_path.readable
+                            ? '#f0fdf4'
+                            : '#fef2f2',
+                        color:
+                          wboxConnection.response_path.exists && wboxConnection.response_path.readable
+                            ? '#166534'
+                            : '#dc2626',
+                        border: `1px solid ${
+                          wboxConnection.response_path.exists && wboxConnection.response_path.readable
+                            ? '#bbf7d0'
+                            : '#fecaca'
+                        }`,
+                      }}
+                    >
+                      {wboxConnection.response_path.exists && wboxConnection.response_path.readable
+                        ? '✓ Response Folder: Accessible & Readable'
+                        : '✕ Response Folder: Inaccessible or Not Readable'}
+                    </span>
+                    <span
+                      style={{
+                        padding: '0.25rem 0.6rem',
+                        borderRadius: '0.35rem',
+                        fontWeight: 600,
+                        background: wboxConnection.credentials_configured ? '#f0fdf4' : '#fffbeb',
+                        color: wboxConnection.credentials_configured ? '#166534' : '#b45309',
+                        border: `1px solid ${
+                          wboxConnection.credentials_configured ? '#bbf7d0' : '#fde68a'
+                        }`,
+                      }}
+                    >
+                      {wboxConnection.credentials_configured
+                        ? '✓ Auth Token: Saved'
+                        : 'ℹ Auth Token: Not saved (optional for folder sync)'}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           </section>

@@ -199,8 +199,8 @@ export async function createActivationCode(token: string): Promise<{ activation_
 
 export async function getWboxStatus(token: string): Promise<{
   connection: {
-    request_path: { exists: boolean; writable: boolean }
-    response_path: { exists: boolean; readable: boolean }
+    request_path: { path?: string | null; exists: boolean; writable: boolean }
+    response_path: { path?: string | null; exists: boolean; readable: boolean }
     credentials_configured: boolean
   }
 }> {
@@ -208,8 +208,8 @@ export async function getWboxStatus(token: string): Promise<{
     '/admin/settings/wbox/status',
     z.object({
       connection: z.object({
-        request_path: z.object({ exists: z.boolean(), writable: z.boolean() }),
-        response_path: z.object({ exists: z.boolean(), readable: z.boolean() }),
+        request_path: z.object({ path: z.string().nullable().optional(), exists: z.boolean(), writable: z.boolean() }),
+        response_path: z.object({ path: z.string().nullable().optional(), exists: z.boolean(), readable: z.boolean() }),
         credentials_configured: z.boolean(),
       }),
     }),
