@@ -65,6 +65,7 @@ export function SettingsPage() {
     request_path: { path?: string | null; exists: boolean; writable: boolean }
     response_path: { path?: string | null; exists: boolean; readable: boolean }
     credentials_configured: boolean
+    server_os?: string
   } | null>(null)
   const [importingMenu, setImportingMenu] = useState(false)
   const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null)
@@ -1381,6 +1382,35 @@ export function SettingsPage() {
                     </span>
                   </div>
                 )}
+
+                {wboxConnection &&
+                  (!wboxConnection.request_path.exists || !wboxConnection.response_path.exists) &&
+                  (wboxConnection.server_os === 'Linux' ||
+                    /^[a-zA-Z]:[\\/]/.test(wboxConnection.request_path.path || '') ||
+                    /^[a-zA-Z]:[\\/]/.test(wboxConnection.response_path.path || '')) && (
+                    <div
+                      style={{
+                        padding: '0.65rem 0.85rem',
+                        borderRadius: '0.45rem',
+                        background: '#eff6ff',
+                        border: '1px solid #bfdbfe',
+                        color: '#1e40af',
+                        fontSize: '0.72rem',
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      <strong style={{ display: 'block', marginBottom: '0.2rem' }}>
+                        ℹ️ Cloud Host Notice: Backend is running on {wboxConnection.server_os || 'a cloud server'}
+                      </strong>
+                      <span>
+                        Windows paths like <code>C:\Restrnt\...</code> exist on your physical restaurant POS computer, not on the cloud server (Railway).
+                        <br />
+                        • <strong>In-Store POS:</strong> Run the backend locally on the POS machine where WBOX is installed (<code>php artisan serve</code>).
+                        <br />
+                        • <strong>Cloud Testing on Railway:</strong> Use server paths like <code>/tmp/wbox/request</code> and <code>/tmp/wbox/response</code>.
+                      </span>
+                    </div>
+                  )}
               </div>
             </div>
           </section>

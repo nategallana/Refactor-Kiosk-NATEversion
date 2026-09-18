@@ -35,13 +35,20 @@ class WboxBridge
     }
 
     /**
-     * @return array{request_path: array{path: string|null, exists: bool, writable: bool}, response_path: array{path: string|null, exists: bool, readable: bool}, credentials_configured: bool}
+     * @return array{request_path: array{path: string|null, exists: bool, writable: bool}, response_path: array{path: string|null, exists: bool, readable: bool}, credentials_configured: bool, server_os: string}
      */
     public function connectionStatus(): array
     {
         $settings = DB::table('system_settings')->where('id', 1)->first();
         $requestPath = $settings?->wbox_request_path;
         $responsePath = $settings?->wbox_response_path;
+
+        if (is_string($requestPath) && ! is_dir($requestPath) && ! preg_match('/^[a-zA-Z]:[\\\\\\/]/', $requestPath)) {
+            @mkdir($requestPath, 0777, true);
+        }
+        if (is_string($responsePath) && ! is_dir($responsePath) && ! preg_match('/^[a-zA-Z]:[\\\\\\/]/', $responsePath)) {
+            @mkdir($responsePath, 0777, true);
+        }
 
         return [
             'request_path' => [
@@ -55,6 +62,7 @@ class WboxBridge
                 'readable' => is_string($responsePath) && is_dir($responsePath) && is_readable($responsePath),
             ],
             'credentials_configured' => $settings !== null && filled($settings->wbox_auth_token_encrypted),
+            'server_os' => PHP_OS_FAMILY,
         ];
     }
 
@@ -213,6 +221,9 @@ class WboxBridge
 
     private function requireDirectory(?string $path, bool $write, string $label): string
     {
+        if (is_string($path) && ! is_dir($path) && ! preg_match('/^[a-zA-Z]:[\\\\\\/]/', $path)) {
+            @mkdir($path, 0777, true);
+        }
         if (! is_string($path) || trim($path) === '' || ! is_dir($path)) {
             throw new RuntimeException(sprintf('The WBOX %s folder does not exist: %s', $label, $path ?: '(not configured)'));
         }

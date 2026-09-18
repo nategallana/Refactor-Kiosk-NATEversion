@@ -202,6 +202,7 @@ export async function getWboxStatus(token: string): Promise<{
     request_path: { path?: string | null; exists: boolean; writable: boolean }
     response_path: { path?: string | null; exists: boolean; readable: boolean }
     credentials_configured: boolean
+    server_os?: string
   }
 }> {
   return apiRequest(
@@ -211,6 +212,7 @@ export async function getWboxStatus(token: string): Promise<{
         request_path: z.object({ path: z.string().nullable().optional(), exists: z.boolean(), writable: z.boolean() }),
         response_path: z.object({ path: z.string().nullable().optional(), exists: z.boolean(), readable: z.boolean() }),
         credentials_configured: z.boolean(),
+        server_os: z.string().optional(),
       }),
     }),
     token
