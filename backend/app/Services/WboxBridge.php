@@ -27,7 +27,8 @@ class WboxBridge
 
         $this->recoverInterruptedExports();
         $response = $this->processResponse($settings);
-        $export = DB::table('wbox_exports')->where('status', 'sent')->exists()
+        $hasPendingSent = ! empty($settings->wbox_response_path) && DB::table('wbox_exports')->where('status', 'sent')->where('sent_at', '>=', now()->subSeconds(30))->exists();
+        $export = $hasPendingSent
             ? null
             : Cache::lock('wbox-bridge-export', 15)->get(fn () => $this->processNextExport($settings));
 
@@ -89,7 +90,15 @@ class WboxBridge
 
         try {
             $requestDirectory = $this->requireDirectory($settings->wbox_request_path, true, 'request');
-            $responseDirectory = $this->requireDirectory($settings->wbox_response_path, false, 'response');
+
+            $baselineHash = null;
+            if (! empty($settings->wbox_response_path) && is_dir($settings->wbox_response_path)) {
+                $responseDirectory = rtrim($settings->wbox_response_path, '\\/');
+                $responseFilename = $settings->wbox_response_filename ?: 'SendOrder.response';
+                $responsePath = $responseDirectory.DIRECTORY_SEPARATOR.$responseFilename;
+                $baselineHash = is_file($responsePath) ? hash_file('sha256', $responsePath) : null;
+            }
+
             $authToken = $this->decryptToken($settings->wbox_auth_token_encrypted);
             $order = DB::table('orders')->where('id', $export->order_id)->first();
             if ($order === null) {
@@ -106,8 +115,6 @@ class WboxBridge
             $filename = $this->filename($terminalSettings->wbox_kiosk_number, (int) $order->id);
             $requestPath = $requestDirectory.DIRECTORY_SEPARATOR.$filename;
             $signalPath = $requestDirectory.DIRECTORY_SEPARATOR.pathinfo($filename, PATHINFO_FILENAME).'.sig';
-            $responsePath = $responseDirectory.DIRECTORY_SEPARATOR.$settings->wbox_response_filename;
-            $baselineHash = is_file($responsePath) ? hash_file('sha256', $responsePath) : null;
 
             $this->writeRequest($requestPath, $xml);
             $this->writeSignal($signalPath);
@@ -141,6 +148,10 @@ class WboxBridge
 
     private function processResponse(object $settings): ?string
     {
+        if (empty($settings->wbox_response_path) || ! is_dir($settings->wbox_response_path)) {
+            return null;
+        }
+
         $export = DB::table('wbox_exports')->where('status', 'sent')->orderBy('sent_at')->first();
         if ($export === null) {
             return null;

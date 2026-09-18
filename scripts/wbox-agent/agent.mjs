@@ -76,9 +76,14 @@ function checkFolders() {
   }
 
   try {
-    if (fs.existsSync(RESPONSE_PATH)) {
+    if (RESPONSE_PATH && fs.existsSync(RESPONSE_PATH)) {
       fs.readdirSync(RESPONSE_PATH)
       responseOk = true
+    } else if (!RESPONSE_PATH) {
+      // Response folder is optional in one-way POS dispatch
+      responseOk = true
+    } else {
+      responseOk = false
     }
   } catch {
     responseOk = false
@@ -103,7 +108,7 @@ async function sendHeartbeat() {
         hostname: os.hostname(),
         request_path: REQUEST_PATH,
         request_ok: requestOk,
-        response_path: RESPONSE_PATH,
+        response_path: RESPONSE_PATH || null,
         response_ok: responseOk,
         version: '1.0.0',
       }),
@@ -116,7 +121,7 @@ async function sendHeartbeat() {
     }
 
     const data = await res.json()
-    const folderStatus = requestOk && responseOk ? `${colors.green}✓ Folders Healthy${colors.reset}` : `${colors.red}✕ Folders Inaccessible${colors.reset}`
+    const folderStatus = requestOk ? `${colors.green}✓ Request Folder Ready${colors.reset}` : `${colors.red}✕ Request Folder Inaccessible${colors.reset}`
     log('HEARTBEAT', `❤️ Cloud connected · ${folderStatus} · Queue: ${data.pending_orders ?? 0} order(s)`, colors.cyan)
   } catch (err) {
     log('HEARTBEAT OFFLINE', `Cannot connect to ${SERVER_URL}: ${err.message}`, colors.yellow)

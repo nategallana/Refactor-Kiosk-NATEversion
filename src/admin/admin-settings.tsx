@@ -183,10 +183,9 @@ export function SettingsPage() {
 
       const isCloud = connection.is_cloud ?? connection.server_os === 'Linux'
       const requestReady = connection.request_path.exists && connection.request_path.writable
-      const responseReady = connection.response_path.exists && connection.response_path.readable
-      const localFoldersReady = requestReady && responseReady
+      const localFoldersReady = requestReady
       const agentConnected = connection.agent?.is_connected ?? false
-      const agentFoldersReady = agentConnected && Boolean(connection.agent?.request_ok) && Boolean(connection.agent?.response_ok)
+      const agentFoldersReady = agentConnected && Boolean(connection.agent?.request_ok)
 
       let ready = false
       let msg = ''
@@ -194,10 +193,10 @@ export function SettingsPage() {
       if (isCloud) {
         if (agentFoldersReady) {
           ready = true
-          msg = `In-Store POS Agent connected (${connection.agent?.hostname || 'POS PC'}). WBOX folders verified!`
+          msg = `In-Store POS Agent connected (${connection.agent?.hostname || 'POS PC'}). WBOX Request folder verified!`
         } else if (agentConnected) {
           ready = false
-          msg = 'In-Store POS Agent connected, but local folders are inaccessible on the POS PC.'
+          msg = 'In-Store POS Agent connected, but Request folder is inaccessible on the POS PC.'
         } else {
           ready = false
           msg = 'In-Store POS Agent is offline. Run start-agent.bat on the store POS computer.'
@@ -205,13 +204,9 @@ export function SettingsPage() {
       } else {
         ready = localFoldersReady
         if (ready) {
-          msg = 'WBOX folders and credentials verified and ready.'
-        } else if (!requestReady && !responseReady) {
-          msg = 'WBOX request and response folders are not accessible.'
-        } else if (!requestReady) {
-          msg = 'WBOX request folder is not accessible or not writable.'
+          msg = 'WBOX Request folder verified and ready to dispatch orders.'
         } else {
-          msg = 'WBOX response folder is not accessible or not readable.'
+          msg = 'WBOX request folder is not accessible or not writable.'
         }
       }
 
@@ -1175,12 +1170,14 @@ export function SettingsPage() {
 
                 <div className="settings-field">
                   <label style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
-                    Response folder
+                    <span>
+                      Response folder <span style={{ color: '#78716c', fontWeight: 400, fontSize: '0.78rem' }}>(Optional · WBox queue only requires Request folder)</span>
+                    </span>
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
                       <input
                         style={{ flex: 1 }}
                         value={settings.wbox_response_path ?? ''}
-                        placeholder="e.g. C:\Restrnt\3rdParty\Response"
+                        placeholder="e.g. C:\Restrnt\3rdParty\Response (Optional)"
                         onChange={(event) =>
                           setSettings({ ...settings, wbox_response_path: event.target.value || null })
                         }
@@ -1471,12 +1468,12 @@ export function SettingsPage() {
                               padding: '0.25rem 0.6rem',
                               borderRadius: '0.35rem',
                               fontWeight: 600,
-                              background: wboxConnection.agent?.response_ok ? '#dcfce7' : '#f3f4f6',
+                              background: wboxConnection.agent?.response_ok ? '#dcfce7' : '#f9fafb',
                               color: wboxConnection.agent?.response_ok ? '#166534' : '#6b7280',
                               border: `1px solid ${wboxConnection.agent?.response_ok ? '#86efac' : '#e5e7eb'}`,
                             }}
                           >
-                            {wboxConnection.agent?.response_ok ? '✓ Local Response Folder (Readable)' : '○ Response Folder (Pending Agent)'}
+                            {wboxConnection.agent?.response_ok ? '✓ Local Response Folder (Optional · Active)' : '○ Response Folder (Optional · Not Required)'}
                           </span>
                         </div>
 
@@ -1545,21 +1542,21 @@ export function SettingsPage() {
                             background:
                               wboxConnection.response_path.exists && wboxConnection.response_path.readable
                                 ? '#f0fdf4'
-                                : '#fef2f2',
+                                : '#f9fafb',
                             color:
                               wboxConnection.response_path.exists && wboxConnection.response_path.readable
                                 ? '#166534'
-                                : '#dc2626',
+                                : '#6b7280',
                             border: `1px solid ${
                               wboxConnection.response_path.exists && wboxConnection.response_path.readable
                                 ? '#bbf7d0'
-                                : '#fecaca'
+                                : '#e5e7eb'
                             }`,
                           }}
                         >
                           {wboxConnection.response_path.exists && wboxConnection.response_path.readable
-                            ? '✓ Response Folder: Accessible & Readable'
-                            : '✕ Response Folder: Inaccessible or Not Readable'}
+                            ? '✓ Response Folder: Accessible (Optional)'
+                            : '○ Response Folder: Not Configured (Optional)'}
                         </span>
                         <span
                           style={{

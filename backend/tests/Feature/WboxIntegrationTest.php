@@ -202,3 +202,23 @@ it('recovers stale processing records and retries failed exports', function () {
     $this->assertDatabaseHas('wbox_exports', ['order_id' => $order['id'], 'status' => 'sent']);
 });
 
+it('successfully exports orders in one-way push mode when response path is not configured', function () {
+    DB::table('system_settings')->where('id', 1)->update([
+        'wbox_response_path' => null,
+    ]);
+
+    $order1 = $this->postJson('/api/v1/orders', wboxOrderPayload(), ['Idempotency-Key' => (string) Str::uuid()])
+        ->assertCreated()->json('order');
+    $order2 = $this->postJson('/api/v1/orders', wboxOrderPayload(), ['Idempotency-Key' => (string) Str::uuid()])
+        ->assertCreated()->json('order');
+
+    // First bridge run exports order 1
+    $this->artisan('wbox:bridge', ['--once' => true])->assertSuccessful();
+    $this->assertDatabaseHas('wbox_exports', ['order_id' => $order1['id'], 'status' => 'sent']);
+
+    // Second bridge run should immediately export order 2 without blocking on response
+    $this->artisan('wbox:bridge', ['--once' => true])->assertSuccessful();
+    $this->assertDatabaseHas('wbox_exports', ['order_id' => $order2['id'], 'status' => 'sent']);
+});
+
+
