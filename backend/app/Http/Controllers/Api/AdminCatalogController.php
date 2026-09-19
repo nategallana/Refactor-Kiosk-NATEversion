@@ -15,7 +15,7 @@ class AdminCatalogController extends Controller
     public function importFromMenuTxt(Request $request): JsonResponse
     {
         $terminal = $request->attributes->get('_terminal');
-        $storeId = (int) ($terminal?->store_id ?? $request->attributes->get('store_id') ?? 1);
+        $storeId = (int) ($terminal?->store_id ?? $request->input('store_id') ?? $request->header('X-Store-Id') ?? $request->attributes->get('store_id') ?? 1);
 
         $importer = $this->menuImporter ?? app(WboxMenuImporter::class);
 
@@ -50,12 +50,28 @@ class AdminCatalogController extends Controller
         }
     }
 
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
+        $terminal = $request->attributes->get('_terminal');
+        $storeId = $terminal?->store_id 
+            ?? $request->input('store_id') 
+            ?? $request->header('X-Store-Id') 
+            ?? $request->attributes->get('store_id');
+
+        $categoriesQuery = DB::table('categories')->orderBy('display_order');
+        $productsQuery = DB::table('products')
+            ->join('categories', 'categories.id', '=', 'products.category_id')
+            ->select('products.*', 'categories.name as category_name')
+            ->orderBy('products.name');
+
+        if ($storeId !== null) {
+            $categoriesQuery->where('categories.store_id', $storeId);
+            $productsQuery->where('products.store_id', $storeId);
+        }
+
         return response()->json([
-            'categories' => DB::table('categories')->orderBy('display_order')->get(),
-            'products' => DB::table('products')->join('categories', 'categories.id', '=', 'products.category_id')
-                ->select('products.*', 'categories.name as category_name')->orderBy('products.name')->get(),
+            'categories' => $categoriesQuery->get(),
+            'products' => $productsQuery->get(),
         ]);
     }
 
