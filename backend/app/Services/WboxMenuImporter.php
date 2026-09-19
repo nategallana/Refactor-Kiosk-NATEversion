@@ -115,7 +115,7 @@ class WboxMenuImporter
                     ?? null;
 
                 $isActive = ($activeFlag === 'Y');
-                $isAvailable = ($availFlag === '1');
+                $isAvailable = $isActive;
 
                 if ($existing) {
                     DB::table('products')->where('id', $existing->id)->update([
